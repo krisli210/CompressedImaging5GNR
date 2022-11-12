@@ -29,6 +29,7 @@ prm.RxELlim = [-90 0];
 prm.NumUsers = 4;
 prm.Ns = 1000; %number of symbols
 prm.M = 2; %modulation order
+prm.K = 12^2; %give as square img 
 
 %Arrays as uniform rectangular given in PA toolbox
 BsArray = phased.URA(prm.BsArraySize, .5*lam, 'Element', phased.IsotropicAntennaElement('BackBaffled', true));
@@ -37,7 +38,7 @@ RxArray = phased.URA(prm.RxArraySize, .5*lam, 'Element', phased.IsotropicAntenna
 
 %Scatterer generation
 nScat = 5;
-rMin = 40; rMax = 80;
+rMin = 20; rMax = 80;
 thetaMin = -60; %in Azimuth
 thetaMax = 60;
 [ScatPosPol, ScatPosCart] = generateScatPositions(nScat, rMin, rMax, thetaMin, thetaMax);
@@ -77,10 +78,18 @@ for i = 1:prm.NumUsers
     bits = randi(2, prm.M*prm.Ns, 1) - 1; 
     s(i, :) = qpskmod(bits);
 end
+
+[RefImg, H_TX, H_RX] = genRandomRefImage(prm.K, ScatPosPol, rMin, rMax, thetaMin, thetaMax); 
+Gamma = reshape(img, [prm.K, 1]);
+
 F = complex(randn(prm.NumBsElements, prm.NumUsers), randn(prm.NumBsElements, prm.NumUsers));
 x = [F*s zeros(prm.NumBsElements, maxChDelay)];
 
 y = (channelRADAR(x.')).';
+NNs = prm.NumRxElements * size(y, 2);
+y_vec = reshape(y, [NNs 1]);
+
+xKron = kron(x.', eye(prm.NumRxElements));
 
 
 function [ScatPosPol, ScatPosCart] = generateScatPositions(nScat, rMin, rMax, thetaMin, thetaMax)
