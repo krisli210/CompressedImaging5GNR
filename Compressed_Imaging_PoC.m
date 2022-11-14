@@ -11,8 +11,7 @@ prm.CenterFreq = 28e9;
 
 c = physconst('LightSpeed');
 prm.PropagationSpeed = c;
-lam = c/prm.CenterFreq;
-prm.Lam = lam;
+prm.lam = c/prm.CenterFreq;
 
 prm.BsPos = [0; 0; 0];
 prm.BsArraySize = [8 8]; %BS Dimension
@@ -32,9 +31,9 @@ prm.M = 2; %modulation order
 prm.K = 12^2; %give as square img 
 
 %Arrays as uniform rectangular given in PA toolbox
-BsArray = phased.URA(prm.BsArraySize, .5*lam, 'Element', phased.IsotropicAntennaElement('BackBaffled', true));
+BsArray = phased.URA(prm.BsArraySize, .5*prm.lam, 'Element', phased.IsotropicAntennaElement('BackBaffled', true));
 
-RxArray = phased.URA(prm.RxArraySize, .5*lam, 'Element', phased.IsotropicAntennaElement);
+RxArray = phased.URA(prm.RxArraySize, .5*prm.lam, 'Element', phased.IsotropicAntennaElement);
 
 %Scatterer generation
 nScat = 5;
@@ -42,7 +41,7 @@ rMin = 20; rMax = 80;
 thetaMin = -60; %in Azimuth
 thetaMax = 60;
 [ScatPosPol, ScatPosCart] = generateScatPositions(nScat, rMin, rMax, thetaMin, thetaMax);
-ScatCoeff = complex(ones(1, nScat), ones(1, nScat)) ./ sqrt(2); %Unit reflector
+ScatCoeffs = complex(ones(1, nScat), ones(1, nScat)) ./ sqrt(2); %Unit reflector
 %End Scatterer generation
 
 % % % RADAR Channel Block
@@ -60,11 +59,12 @@ channelRADAR.ReceiveArray = RxArray;
 channelRADAR.ReceiveArrayPosition = prm.RxPos; 
 channelRADAR.ScattererSpecificationSource = 'Property';
 channelRADAR.ScattererPosition = ScatPosCart;
-channelRADAR.ScattererCoefficient = ScatCoeff;
+channelRADAR.ScattererCoefficient = ScatCoeffs;
 channelRADAR.MaximumDelaySource = 'Auto';
 
-[~,~,tau] = channelRADAR(complex(randn(1,prm.NumBsElements), ...
+[~,trueH,tau] = channelRADAR(complex(randn(1,prm.NumBsElements), ...
     randn(1,prm.NumBsElements)));
+trueH = sum(trueH, 3);
 maxChDelay = ceil(max(tau)*channelRADAR.SampleRate);
 % % % RADAR Channel Block
 
@@ -78,10 +78,9 @@ for i = 1:prm.NumUsers
     bits = randi(2, prm.M*prm.Ns, 1) - 1; 
     s(i, :) = qpskmod(bits);
 end
+%end tx signal construction
 
-[RefImg, H_TX, H_RX] = genRandomRefImage(prm.K, ScatPosPol, rMin, rMax, thetaMin, thetaMax); 
-Gamma = reshape(img, [prm.K, 1]);
-
+[RefImg, Gamma, H_TX, H_RX, physH] = genRandomRefImage(prm, ScatPosPol, ScatPosCart, ScatCoeffs, rMax, thetaMin, thetaMax); 
 F = complex(randn(prm.NumBsElements, prm.NumUsers), randn(prm.NumBsElements, prm.NumUsers));
 x = [F*s zeros(prm.NumBsElements, maxChDelay)];
 
@@ -89,18 +88,11 @@ y = (channelRADAR(x.')).';
 NNs = prm.NumRxElements * size(y, 2);
 y_vec = reshape(y, [NNs 1]);
 
-xKron = kron(x.', eye(prm.NumRxElements));
+xKron = kron(x, eye(prm.NumRxElements));
+H_combined = kr(H_TX, H_RX);
+A = xKron.' * H_combined;
 
-
-function [ScatPosPol, ScatPosCart] = generateScatPositions(nScat, rMin, rMax, thetaMin, thetaMax)
-    r = (rMax-rMin).*rand(1, nScat) + rMin;
-    theta = (thetaMax-thetaMin).*rand(1, nScat) + thetaMin;
-    
-    ScatPosPol = [r; theta; zeros(1, nScat)];
-    ScatPosCart = [r.*cosd(theta) ; r.*sind(theta) ; zeros(1, nScat)];
-end
-
-function gammas = solve_inverse(A, y)
-    
-end
-
+x0 = complex(randn(prm.K, 1), randn(prm.K, 1));
+% x0 = Gamma;
+epsilon = .1;
+Gamma_hat = l1qc_logbarrier(x0, A, [], y_vec, epsilon);
