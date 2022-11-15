@@ -1,5 +1,6 @@
 %% Comm-defined imaging of a MIMO scattering channel
 close all
+clear
 
 rng(42);
 % Begin with a PoC script utilizing randomized beamforming
@@ -26,9 +27,10 @@ prm.RxAZlim = [-60 60];
 prm.RxELlim = [-90 0];
 
 prm.NumUsers = 4;
-prm.Ns = 1000; %number of symbols
+prm.NumPackets = 100;
+prm.Ns = 1; %number of symbols per packet
 prm.M = 2; %modulation order
-prm.K = 12^2; %give as square img 
+prm.K = 20^2; %give as square img 
 
 %Arrays as uniform rectangular given in PA toolbox
 BsArray = phased.URA(prm.BsArraySize, .5*prm.lam, 'Element', phased.IsotropicAntennaElement('BackBaffled', true));
@@ -36,7 +38,7 @@ BsArray = phased.URA(prm.BsArraySize, .5*prm.lam, 'Element', phased.IsotropicAnt
 RxArray = phased.URA(prm.RxArraySize, .5*prm.lam, 'Element', phased.IsotropicAntennaElement);
 
 %Scatterer generation
-nScat = 5;
+nScat = 7;
 rMin = 20; rMax = 80;
 thetaMin = -60; %in Azimuth
 thetaMax = 60;
@@ -72,19 +74,26 @@ maxChDelay = ceil(max(tau)*channelRADAR.SampleRate);
 % txWaveform = repmat(waveform, [1 64]);
 
 %tx signal construction
-s = zeros(prm.NumUsers, prm.Ns);
+s = zeros(prm.NumUsers, prm.Ns * prm.NumPackets);
+x = zeros(prm.NumBsElements, prm.Ns * prm.NumPackets);
 qpskmod = comm.QPSKModulator('BitInput',true);   
-for i = 1:prm.NumUsers
-    bits = randi(2, prm.M*prm.Ns, 1) - 1; 
-    s(i, :) = qpskmod(bits);
+for p = 1:prm.NumPackets
+    F = complex(randn(prm.NumBsElements, prm.NumUsers), randn(prm.NumBsElements, prm.NumUsers));
+    for u = 1:prm.NumUsers
+        bits = randi(2, prm.M*prm.Ns, 1) - 1; 
+        s(u, (p-1)*prm.Ns+1:p*prm.Ns) = qpskmod(bits);
+    end
+    x(:, (p-1)*prm.Ns+1:p*prm.Ns) = F * s(:, (p-1)*prm.Ns+1:p*prm.Ns);
 end
+
+% F = complex(randn(prm.NumBsElements, prm.NumUsers), randn(prm.NumBsElements, prm.NumUsers));
+% x = [F*s zeros(prm.NumBsElements, maxChDelay)];
 %end tx signal construction
 
 [RefImg, Gamma, H_TX, H_RX, physH] = genRandomRefImage(prm, ScatPosPol, ScatPosCart, ScatCoeffs, rMax, thetaMin, thetaMax); 
-F = complex(randn(prm.NumBsElements, prm.NumUsers), randn(prm.NumBsElements, prm.NumUsers));
-x = [F*s zeros(prm.NumBsElements, maxChDelay)];
 
-y = (channelRADAR(x.')).';
+% y = (channelRADAR(x.')).';
+y = physH * x;
 NNs = prm.NumRxElements * size(y, 2);
 y_vec = reshape(y, [NNs 1]);
 
@@ -92,7 +101,18 @@ xKron = kron(x, eye(prm.NumRxElements));
 H_combined = kr(H_TX, H_RX);
 A = xKron.' * H_combined;
 
+% x0 = .0001*ones(prm.K, 1);
 x0 = complex(randn(prm.K, 1), randn(prm.K, 1));
 % x0 = Gamma;
-epsilon = .1;
+epsilon = 1e-4;
 Gamma_hat = l1qc_logbarrier(x0, A, [], y_vec, epsilon);
+% Gamma_hat = l1eq_pd(x0, A, 0, y_vec);
+% Gamma_hat = l1dantzig_pd(x0, A, [], y_vec, epsilon)
+
+figure;
+subplot(1, 2, 1); imagesc(abs(RefImg).^2);
+title('Reference Image'); xlabel('\theta'); ylabel('Range [m]');
+
+img_hat = reshape(Gamma_hat, [sqrt(prm.K) sqrt(prm.K)]);
+subplot(1, 2, 2); imagesc(abs(img_hat).^2);
+title('Reconstructed Image'); xlabel('\theta'); ylabel('Range [m]');

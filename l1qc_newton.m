@@ -89,7 +89,8 @@ while (~done)
   else
     H11p = diag(sigx) - (1/fe)*AtA + (1/fe)^2*atr*atr';
     opts.POSDEF = true; opts.SYM = true;
-    [dx,hcond] = linsolve(H11p, w1p, opts);
+%     [dx,hcond] = linsolve(H11p, w1p, opts);
+    [dx,hcond] = linsolve(H11p, w1p);
     if (hcond < 1e-14)
       disp('Matrix ill-conditioned.  Returning previous iterate.  (See Section 4 of notes for more information.)');
       xp = x;  up = u;
