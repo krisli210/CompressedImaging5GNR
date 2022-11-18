@@ -1,4 +1,4 @@
-function [RefImg, Gamma, H_TX, H_RX, physH] = genRandomRefImage(prm, ScatPosPol, ScatPosCart, ScatCoeffs, rMax, thetaMin, thetaMax)
+function [RefImg, Gamma, H_TX, H_RX, physH] = genRandomRefImage(prm, ScatPosCart, ScatCoeffs, BsArrayPos, RxArrayPos, rMax, thetaMin, thetaMax)
     
     
     if (floor(sqrt(prm.K)) ~= sqrt(prm.K))
@@ -8,29 +8,40 @@ function [RefImg, Gamma, H_TX, H_RX, physH] = genRandomRefImage(prm, ScatPosPol,
     % Output a sqrt(K) x sqrt(K) image 
     % H_TX returns M x K, H_RX returns N x K 
     
-    nScat = size(ScatPosPol, 2);
+    nScat = size(ScatPosCart, 2);
 
     rangeBins = 0:rMax/(sqrt(prm.K)):rMax;
     rangeBins = rangeBins(2:end); % JANK!!!
     thetaBins = thetaMin:(thetaMax-thetaMin)/(sqrt(prm.K)-1):thetaMax;
     
+    RefImgCoorPol = [repmat(rangeBins, [1 sqrt(prm.K)]); reshape(repmat(thetaBins, [sqrt(prm.K) 1]), [1 prm.K]); zeros(1, prm.K)];
+
+    [x, y, z] = pol2cart(deg2rad(RefImgCoorPol(2, :)), RefImgCoorPol(1, :), RefImgCoorPol(3, :));
+    RefImgCoorCart = [x; y; z];
+
     % fill in corresponding bins
-    RefImg = zeros(sqrt(prm.K), sqrt(prm.K));
+    Gamma = zeros(prm.K, 1);
     for scat = 1:nScat
-        [~, rangeInd] = min(abs(ScatPosPol(1, scat) - rangeBins));
-        [~, thetaInd] = min(abs(ScatPosPol(2, scat) - thetaBins));
-        RefImg(rangeInd, thetaInd) = RefImg(rangeInd, thetaInd) + ScatCoeffs(scat); 
+        [~, bin] = min(vecnorm(ScatPosCart(:, scat) - RefImgCoorCart, 2, 1));
+        Gamma(bin) = Gamma(bin) + ScatCoeffs(scat);
     end
-    Gamma = reshape(RefImg, [prm.K, 1]);
     diagGamma = diag(Gamma);
     
-    rangeOverK = repmat(rangeBins, [1 sqrt(prm.K)]);
+    RefImg = reshape(Gamma, [sqrt(prm.K), sqrt(prm.K)]);
     
-    H_TX = exp(-1j*(2*pi/prm.lam).*(rangeOverK))./(4*pi.*(rangeOverK)).^2; %Make this variable over BS pos
-    H_TX = repmat(H_TX, [prm.NumBsElements 1]);
+    H_TX = zeros(prm.NumBsElements, prm.K);
+    H_RX = zeros(prm.NumRxElements, prm.K);
+    
+%     rangeOverK = repmat(rangeBins, [1, sqrt(prm.K)]);
+    for k = 1:prm.K
+        % Belive an issue lies here with precision, the antenna spacing
+        % i.e., the distance from antenna to antenna to scene not mattering
+        d_TX_K = vecnorm(BsArrayPos - RefImgCoorCart(:, k), 2, 1); % This distance is coming out to the same across antenna elements per voxel???
+        d_K_RX = vecnorm(RxArrayPos - RefImgCoorCart(:, k), 2, 1);
 
-    H_RX = exp(-1j*(2*pi/prm.lam).*(rangeOverK))./(4*pi.*(rangeOverK)).^2;
-    H_RX = repmat(H_RX, [prm.NumRxElements 1]);
+        H_TX(:, k) = exp(-1j*(2*pi/prm.lam).*(d_TX_K))./(4*pi.*(d_TX_K)).^2;
+        H_RX(:, k) = exp(-1j*(2*pi/prm.lam).*(d_K_RX))./(4*pi.*(d_K_RX)).^2;
+    end
     
     physH = H_RX * diagGamma * H_TX.';
 end

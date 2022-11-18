@@ -20,7 +20,7 @@ prm.NumBsElements = prod(prm.BsArraySize);
 prm.BsAZlim = [-60 60];
 prm.BsELlim = [-90 0];
 
-prm.RxPos = [0; 0; 0];
+prm.RxPos = [0; -10; 0];
 prm.RxArraySize = [8 8];
 prm.NumRxElements = prod(prm.RxArraySize);
 prm.RxAZlim = [-60 60];
@@ -30,15 +30,17 @@ prm.NumUsers = 4;
 prm.NumPackets = 100;
 prm.Ns = 1; %number of symbols per packet
 prm.M = 2; %modulation order
-prm.K = 20^2; %give as square img 
+prm.K = 12^2; %give as square img 
 
 %Arrays as uniform rectangular given in PA toolbox
 BsArray = phased.URA(prm.BsArraySize, .5*prm.lam, 'Element', phased.IsotropicAntennaElement('BackBaffled', true));
+% BsArray = phased.ULA(prm.NumBsElements, .5*prm.lam, 'Element', phased.IsotropicAntennaElement('BackBaffled', true));
 
-RxArray = phased.URA(prm.RxArraySize, .5*prm.lam, 'Element', phased.IsotropicAntennaElement);
+RxArray = phased.URA(prm.RxArraySize, 10.5*prm.lam, 'Element', phased.IsotropicAntennaElement);
+% RxArray = phased.ULA(prm.NumRxElements, 10.5*prm.lam, 'Element', phased.IsotropicAntennaElement);
 
 %Scatterer generation
-nScat = 7;
+nScat = 4;
 rMin = 20; rMax = 80;
 thetaMin = -60; %in Azimuth
 thetaMax = 60;
@@ -66,7 +68,7 @@ channelRADAR.MaximumDelaySource = 'Auto';
 
 [~,trueH,tau] = channelRADAR(complex(randn(1,prm.NumBsElements), ...
     randn(1,prm.NumBsElements)));
-trueH = sum(trueH, 3);
+% trueH = sum(trueH, 3);
 maxChDelay = ceil(max(tau)*channelRADAR.SampleRate);
 % % % RADAR Channel Block
 
@@ -90,24 +92,28 @@ end
 % x = [F*s zeros(prm.NumBsElements, maxChDelay)];
 %end tx signal construction
 
-[RefImg, Gamma, H_TX, H_RX, physH] = genRandomRefImage(prm, ScatPosPol, ScatPosCart, ScatCoeffs, rMax, thetaMin, thetaMax); 
+[RefImg, Gamma, H_TX, H_RX, physH] = genRandomRefImage(prm, ScatPosCart, ScatCoeffs, ...
+                                     getElementPosition(BsArray), getElementPosition(RxArray), ... 
+                                     rMax, thetaMin, thetaMax); 
 
 % y = (channelRADAR(x.')).';
 y = physH * x;
 NNs = prm.NumRxElements * size(y, 2);
 y_vec = reshape(y, [NNs 1]);
 
-xKron = kron(x, eye(prm.NumRxElements));
-H_combined = kr(H_TX, H_RX);
+xKron = kron(x, eye(prm.NumRxElements)); % this is full rank necessarily
+H_combined = kr(H_TX, H_RX); % this is problematic
 A = xKron.' * H_combined;
 
 % x0 = .0001*ones(prm.K, 1);
 x0 = complex(randn(prm.K, 1), randn(prm.K, 1));
 % x0 = Gamma;
-epsilon = 1e-4;
+epsilon = 1e-6;
 Gamma_hat = l1qc_logbarrier(x0, A, [], y_vec, epsilon);
 % Gamma_hat = l1eq_pd(x0, A, 0, y_vec);
 % Gamma_hat = l1dantzig_pd(x0, A, [], y_vec, epsilon)
+% Gamma_hat = inv(A.'*A)*A.'*y_vec;
+% Gamma_hat = linsolve(A, y_vec);
 
 figure;
 subplot(1, 2, 1); imagesc(abs(RefImg).^2);
