@@ -1,6 +1,6 @@
 %% Comm-defined imaging of a MIMO scattering channel
 close all
-clear
+clear 
 
 rng(42);
 % Begin with a PoC script utilizing randomized beamforming
@@ -20,7 +20,7 @@ prm.NumBsElements = prod(prm.BsArraySize);
 prm.BsAZlim = [-60 60];
 prm.BsELlim = [-90 0];
 
-prm.RxPos = [0; -10; 0];
+prm.RxPos = [0; 0; 0];
 prm.RxArraySize = [8 8];
 prm.NumRxElements = prod(prm.RxArraySize);
 prm.RxAZlim = [-60 60];
@@ -30,14 +30,14 @@ prm.NumUsers = 4;
 prm.NumPackets = 100;
 prm.Ns = 1; %number of symbols per packet
 prm.M = 2; %modulation order
-prm.K = 12^2; %give as square img 
+prm.K = 20^2; %give as square img 
 
 %Arrays as uniform rectangular given in PA toolbox
 BsArray = phased.URA(prm.BsArraySize, .5*prm.lam, 'Element', phased.IsotropicAntennaElement('BackBaffled', true));
 % BsArray = phased.ULA(prm.NumBsElements, .5*prm.lam, 'Element', phased.IsotropicAntennaElement('BackBaffled', true));
 
-RxArray = phased.URA(prm.RxArraySize, 10.5*prm.lam, 'Element', phased.IsotropicAntennaElement);
-% RxArray = phased.ULA(prm.NumRxElements, 10.5*prm.lam, 'Element', phased.IsotropicAntennaElement);
+% RxArray = phased.URA(prm.RxArraySize, .5*prm.lam, 'Element', phased.IsotropicAntennaElement);
+RxArray = phased.ULA(prm.NumRxElements, 2.5*prm.lam, 'Element', phased.IsotropicAntennaElement);
 
 %Scatterer generation
 nScat = 4;
@@ -72,9 +72,6 @@ channelRADAR.MaximumDelaySource = 'Auto';
 maxChDelay = ceil(max(tau)*channelRADAR.SampleRate);
 % % % RADAR Channel Block
 
-% [waveform, info] = genMU5GNRWaveform();
-% txWaveform = repmat(waveform, [1 64]);
-
 %tx signal construction
 s = zeros(prm.NumUsers, prm.Ns * prm.NumPackets);
 x = zeros(prm.NumBsElements, prm.Ns * prm.NumPackets);
@@ -96,24 +93,36 @@ end
                                      getElementPosition(BsArray), getElementPosition(RxArray), ... 
                                      rMax, thetaMin, thetaMax); 
 
-% y = (channelRADAR(x.')).';
+
+% y = channelRADAR(x.').'; 
+W = eye(prm.NumRxElements);
 y = physH * x;
 NNs = prm.NumRxElements * size(y, 2);
 y_vec = reshape(y, [NNs 1]);
 
-xKron = kron(x, eye(prm.NumRxElements)); % this is full rank necessarily
-H_combined = kr(H_TX, H_RX); % this is problematic
-A = xKron.' * H_combined;
+% p = rand([NNs, 1]) > .9;
+% y_vec(p) = 0;
 
-% x0 = .0001*ones(prm.K, 1);
+xKron = kron(x.', W); % this is full rank necessarily
+H_combined = kr(H_TX, H_RX); % this is problematic
+A = xKron * H_combined;
+
 x0 = complex(randn(prm.K, 1), randn(prm.K, 1));
-% x0 = Gamma;
 epsilon = 1e-6;
-Gamma_hat = l1qc_logbarrier(x0, A, [], y_vec, epsilon);
+% Gamma_hat = l1qc_logbarrier(x0, A, [], y_vec, epsilon);
 % Gamma_hat = l1eq_pd(x0, A, 0, y_vec);
 % Gamma_hat = l1dantzig_pd(x0, A, [], y_vec, epsilon)
 % Gamma_hat = inv(A.'*A)*A.'*y_vec;
 % Gamma_hat = linsolve(A, y_vec);
+
+% % % Native Solvers 
+
+sensingDict = sensingDictionary('CustomDictionary', A);
+% [Gamma_hat, MSE, lambda] = basisPursuit(sensingDict, y_vec, MaxErr=1e-20);
+[Gamma_hat, YI, I, R] = matchingPursuit(sensingDict, y_vec, maxIterations=100, Algorithm="OMP", maxerr={"L1", 1e-6});
+
+% % % 
+
 
 figure;
 subplot(1, 2, 1); imagesc(abs(RefImg).^2);

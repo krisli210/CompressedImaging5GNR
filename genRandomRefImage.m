@@ -32,11 +32,8 @@ function [RefImg, Gamma, H_TX, H_RX, physH] = genRandomRefImage(prm, ScatPosCart
     H_TX = zeros(prm.NumBsElements, prm.K);
     H_RX = zeros(prm.NumRxElements, prm.K);
     
-%     rangeOverK = repmat(rangeBins, [1, sqrt(prm.K)]);
     for k = 1:prm.K
-        % Belive an issue lies here with precision, the antenna spacing
-        % i.e., the distance from antenna to antenna to scene not mattering
-        d_TX_K = vecnorm(BsArrayPos - RefImgCoorCart(:, k), 2, 1); % This distance is coming out to the same across antenna elements per voxel???
+        d_TX_K = vecnorm(BsArrayPos - RefImgCoorCart(:, k), 2, 1);
         d_K_RX = vecnorm(RxArrayPos - RefImgCoorCart(:, k), 2, 1);
 
         H_TX(:, k) = exp(-1j*(2*pi/prm.lam).*(d_TX_K))./(4*pi.*(d_TX_K)).^2;
