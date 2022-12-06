@@ -2,7 +2,7 @@
 close all
 clear 
 
-rng(42);
+rng(423);
 % Begin with a PoC script utilizing randomized beamforming
 % and 5GNR data packets formed with the 5GNR comm toolbox
 
@@ -15,32 +15,33 @@ prm.PropagationSpeed = c;
 prm.lam = c/prm.CenterFreq;
 
 prm.BsPos = [0; 0; 0];
-prm.BsArraySize = [8 8]; %BS Dimension
+prm.BsArraySize = [4 4]; %BS Dimension
 prm.NumBsElements = prod(prm.BsArraySize);
 prm.BsAZlim = [-60 60];
 prm.BsELlim = [-90 0];
 
 prm.RxPos = [0; 0; 0];
-prm.RxArraySize = [8 8];
+prm.RxArraySize = [4 4];
 prm.NumRxElements = prod(prm.RxArraySize);
 prm.RxAZlim = [-60 60];
 prm.RxELlim = [-90 0];
 
 prm.NumUsers = 4;
-prm.NumPackets = 100;
+prm.NumPackets = 1;
 prm.Ns = 1; %number of symbols per packet
 prm.M = 2; %modulation order
-prm.K = 20^2; %give as square img 
+prm.K = 12^2; %give as square img 
 
+angles = prm.BsAZlim(1):(prm.BsAZlim(2)-prm.BsAZlim(1))/(prm.NumPackets-1):prm.BsAZlim(2);
 %Arrays as uniform rectangular given in PA toolbox
 BsArray = phased.URA(prm.BsArraySize, .5*prm.lam, 'Element', phased.IsotropicAntennaElement('BackBaffled', true));
 % BsArray = phased.ULA(prm.NumBsElements, .5*prm.lam, 'Element', phased.IsotropicAntennaElement('BackBaffled', true));
 
-% RxArray = phased.URA(prm.RxArraySize, .5*prm.lam, 'Element', phased.IsotropicAntennaElement);
-RxArray = phased.ULA(prm.NumRxElements, 2.5*prm.lam, 'Element', phased.IsotropicAntennaElement);
+RxArray = phased.URA(prm.RxArraySize, .5*prm.lam, 'Element', phased.IsotropicAntennaElement);
+% RxArray = phased.ULA(prm.NumRxElements, .5*prm.lam, 'Element', phased.IsotropicAntennaElement);
 
 %Scatterer generation
-nScat = 4;
+nScat = 2;
 rMin = 20; rMax = 80;
 thetaMin = -60; %in Azimuth
 thetaMax = 60;
@@ -72,12 +73,22 @@ channelRADAR.MaximumDelaySource = 'Auto';
 maxChDelay = ceil(max(tau)*channelRADAR.SampleRate);
 % % % RADAR Channel Block
 
+%DFT matrix definitions
+A_tx = (1/sqrt(prm.NumBsElements)) .* exp(-1j * 2*pi * (0:prm.NumBsElements-1).' * (0:prm.NumBsElements-1) ./ prm.NumBsElements);
+A_rx = (1/sqrt(prm.NumRxElements)) .* exp(-1j * 2*pi * (0:prm.NumRxElements-1).' * (0:prm.NumBsElements-1) ./ prm.NumRxElements);
+
 %tx signal construction
 s = zeros(prm.NumUsers, prm.Ns * prm.NumPackets);
 x = zeros(prm.NumBsElements, prm.Ns * prm.NumPackets);
 qpskmod = comm.QPSKModulator('BitInput',true);   
 for p = 1:prm.NumPackets
-    F = complex(randn(prm.NumBsElements, prm.NumUsers), randn(prm.NumBsElements, prm.NumUsers));
+%     F = fft(ones(prm.NumBsElements, prm.NumUsers));
+%     F = complex(randn(prm.NumBsElements, prm.NumUsers), randn(prm.NumBsElements, prm.NumUsers));
+%     F = steervec(getElementPosition(BsArray), angles(p));
+
+    cols = randperm(prm.NumBsElements, prm.NumUsers); % DFT based precoding
+    F = A_tx(:, cols);
+
     for u = 1:prm.NumUsers
         bits = randi(2, prm.M*prm.Ns, 1) - 1; 
         s(u, (p-1)*prm.Ns+1:p*prm.Ns) = qpskmod(bits);
@@ -95,17 +106,17 @@ end
 
 
 % y = channelRADAR(x.').'; 
-W = eye(prm.NumRxElements);
-y = physH * x;
-NNs = prm.NumRxElements * size(y, 2);
+W = eye(size(H_RX, 1));
+y = W * physH * x;
+NNs = size(H_RX, 1) * size(y, 2);
 y_vec = reshape(y, [NNs 1]);
 
 % p = rand([NNs, 1]) > .9;
 % y_vec(p) = 0;
 
-xKron = kron(x.', W); % this is full rank necessarily
-H_combined = kr(H_TX, H_RX); % this is problematic
-A = xKron * H_combined;
+Phi = kron(x.', W); % this is full rank necessarily
+Psi = kr(H_TX, H_RX); % this is problematic
+A = Phi * Psi;
 
 x0 = complex(randn(prm.K, 1), randn(prm.K, 1));
 epsilon = 1e-6;
@@ -119,7 +130,7 @@ epsilon = 1e-6;
 
 sensingDict = sensingDictionary('CustomDictionary', A);
 % [Gamma_hat, MSE, lambda] = basisPursuit(sensingDict, y_vec, MaxErr=1e-20);
-[Gamma_hat, YI, I, R] = matchingPursuit(sensingDict, y_vec, maxIterations=100, Algorithm="OMP", maxerr={"L1", 1e-6});
+[Gamma_hat, YI, I, R] = matchingPursuit(sensingDict, y_vec, maxIterations=100, Algorithm="OMP", maxerr={"L1", 1e-1});
 
 % % % 
 

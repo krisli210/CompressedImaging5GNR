@@ -25,7 +25,6 @@ function [RefImg, Gamma, H_TX, H_RX, physH] = genRandomRefImage(prm, ScatPosCart
         [~, bin] = min(vecnorm(ScatPosCart(:, scat) - RefImgCoorCart, 2, 1));
         Gamma(bin) = Gamma(bin) + ScatCoeffs(scat);
     end
-    diagGamma = diag(Gamma);
     
     RefImg = reshape(Gamma, [sqrt(prm.K), sqrt(prm.K)]);
     
@@ -40,5 +39,13 @@ function [RefImg, Gamma, H_TX, H_RX, physH] = genRandomRefImage(prm, ScatPosCart
         H_RX(:, k) = exp(-1j*(2*pi/prm.lam).*(d_K_RX))./(4*pi.*(d_K_RX)).^2;
     end
     
-    physH = H_RX * diagGamma * H_TX.';
+%     %Randomly 0 receiver elements as a test to reduce coherence
+%     %i.e., 0 along the rows of H_RX
+%     p = .2; % probability we use
+%     rows = sort(randperm(prm.NumRxElements, floor(prm.NumRxElements * p)));
+%     H_RX = H_RX(rows, :);
+%  
+%     % DID NOT WORK 
+
+    physH = H_RX * diag(Gamma) * H_TX.';
 end
