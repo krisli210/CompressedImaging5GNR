@@ -23,28 +23,27 @@ prm.BsELlim = [-90 0];
 prm.RxPos = [0; 0; 0];
 prm.RxArraySize = [4 4];
 prm.NumRxElements = prod(prm.RxArraySize);
-prm.RxAZlim = [-60 60];
+prm.RxAZlim = prm.BsAZlim;
 prm.RxELlim = [-90 0];
 
 prm.NumUsers = 4;
-prm.NumPackets = 1;
+prm.NumPackets = 20;
 prm.Ns = 1; %number of symbols per packet
 prm.M = 2; %modulation order
-prm.K = 12^2; %give as square img 
+prm.K = 16; %number of grid spots, i.e. dimension of the quantized azimuth profile
 
 angles = prm.BsAZlim(1):(prm.BsAZlim(2)-prm.BsAZlim(1))/(prm.NumPackets-1):prm.BsAZlim(2);
 %Arrays as uniform rectangular given in PA toolbox
-BsArray = phased.URA(prm.BsArraySize, .5*prm.lam, 'Element', phased.IsotropicAntennaElement('BackBaffled', true));
-% BsArray = phased.ULA(prm.NumBsElements, .5*prm.lam, 'Element', phased.IsotropicAntennaElement('BackBaffled', true));
+% BsArray = phased.URA(prm.BsArraySize, .5*prm.lam, 'Element', phased.IsotropicAntennaElement('BackBaffled', true));
+BsArray = phased.ULA(prm.NumBsElements, .5*prm.lam, 'Element', phased.IsotropicAntennaElement('BackBaffled', true));
 
-RxArray = phased.URA(prm.RxArraySize, .5*prm.lam, 'Element', phased.IsotropicAntennaElement);
-% RxArray = phased.ULA(prm.NumRxElements, .5*prm.lam, 'Element', phased.IsotropicAntennaElement);
+% RxArray = phased.URA(prm.RxArraySize, .5*prm.lam, 'Element', phased.IsotropicAntennaElement);
+RxArray = phased.ULA(prm.NumRxElements, .5*prm.lam, 'Element', phased.IsotropicAntennaElement);
 
 %Scatterer generation
 nScat = 2;
 rMin = 20; rMax = 80;
-thetaMin = -60; %in Azimuth
-thetaMax = 60;
+thetaMin = prm.BsAZlim(1); thetaMax = prm.BsAZlim(2); %in Azimuth
 [ScatPosPol, ScatPosCart] = generateScatPositions(nScat, rMin, rMax, thetaMin, thetaMax);
 ScatCoeffs = complex(ones(1, nScat), ones(1, nScat)) ./ sqrt(2); %Unit reflector
 %End Scatterer generation
@@ -94,16 +93,21 @@ for p = 1:prm.NumPackets
         s(u, (p-1)*prm.Ns+1:p*prm.Ns) = qpskmod(bits);
     end
     x(:, (p-1)*prm.Ns+1:p*prm.Ns) = F * s(:, (p-1)*prm.Ns+1:p*prm.Ns);
+    % x is NumBsElements x Ns
 end
-
-% F = complex(randn(prm.NumBsElements, prm.NumUsers), randn(prm.NumBsElements, prm.NumUsers));
-% x = [F*s zeros(prm.NumBsElements, maxChDelay)];
 %end tx signal construction
 
-[RefImg, Gamma, H_TX, H_RX, physH] = genRandomRefImage(prm, ScatPosCart, ScatCoeffs, ...
-                                     getElementPosition(BsArray), getElementPosition(RxArray), ... 
-                                     rMax, thetaMin, thetaMax); 
-
+% [RefImg, Gamma, H_TX, H_RX, physH] = genRandomRefImage(prm, ScatPosCart, ScatCoeffs, ...
+%                                      getElementPosition(BsArray), getElementPosition(RxArray), ... 
+%                                      rMax, thetaMin, thetaMax); 
+ 
+BsSteer = phased.SteeringVector('SensorArray', BsArray);
+RxSteer = phased.SteeringVector('SensorArray', RxArray);
+[azProfile, H_TX, H_RX, physH] = genRandomAzProfile(prm, ...
+                                                    getElementPosition(BsArray), ...
+                                                    getElementPosition(RxArray), ...
+                                                    thetaMin, thetaMax, ...
+                                                    BsSteer, RxSteer);
 
 % y = channelRADAR(x.').'; 
 W = eye(size(H_RX, 1));
@@ -111,34 +115,27 @@ y = W * physH * x;
 NNs = size(H_RX, 1) * size(y, 2);
 y_vec = reshape(y, [NNs 1]);
 
-% p = rand([NNs, 1]) > .9;
-% y_vec(p) = 0;
-
 Phi = kron(x.', W); % this is full rank necessarily
 Psi = kr(H_TX, H_RX); % this is problematic
 A = Phi * Psi;
 
-x0 = complex(randn(prm.K, 1), randn(prm.K, 1));
-epsilon = 1e-6;
+% x0 = complex(randn(prm.K, 1), randn(prm.K, 1));
+% epsilon = 1e-6;
 % Gamma_hat = l1qc_logbarrier(x0, A, [], y_vec, epsilon);
-% Gamma_hat = l1eq_pd(x0, A, 0, y_vec);
-% Gamma_hat = l1dantzig_pd(x0, A, [], y_vec, epsilon)
-% Gamma_hat = inv(A.'*A)*A.'*y_vec;
-% Gamma_hat = linsolve(A, y_vec);
+
 
 % % % Native Solvers 
 
-sensingDict = sensingDictionary('CustomDictionary', A);
-% [Gamma_hat, MSE, lambda] = basisPursuit(sensingDict, y_vec, MaxErr=1e-20);
-[Gamma_hat, YI, I, R] = matchingPursuit(sensingDict, y_vec, maxIterations=100, Algorithm="OMP", maxerr={"L1", 1e-1});
+% sensingDict = sensingDictionary('CustomDictionary', A);
+% [Gamma_hat, YI, I, R] = matchingPursuit(sensingDict, y_vec, maxIterations=100, Algorithm="OMP", maxerr={"L1", 1e-1});
 
 % % % 
 
 
-figure;
-subplot(1, 2, 1); imagesc(abs(RefImg).^2);
-title('Reference Image'); xlabel('\theta'); ylabel('Range [m]');
-
-img_hat = reshape(Gamma_hat, [sqrt(prm.K) sqrt(prm.K)]);
-subplot(1, 2, 2); imagesc(abs(img_hat).^2);
-title('Reconstructed Image'); xlabel('\theta'); ylabel('Range [m]');
+% figure;
+% subplot(1, 2, 1); imagesc(abs(RefImg).^2);
+% title('Reference Image'); xlabel('\theta'); ylabel('Range [m]');
+% 
+% img_hat = reshape(Gamma_hat, [sqrt(prm.K) sqrt(prm.K)]);
+% subplot(1, 2, 2); imagesc(abs(img_hat).^2);
+% title('Reconstructed Image'); xlabel('\theta'); ylabel('Range [m]');
