@@ -1,5 +1,4 @@
-function [azProfile, H_TX, H_RX, physH] = genRandomAzProfile(prm, BsArrayPos, ...
-                                                            RxArrayPos, ...
+function [azProfile, H_TX, H_RX, physH] = genRandomAzProfile(prm, ...
                                                             thetaMin, thetaMax, ...
                                                             BsSteer, RxSteer)
 
@@ -8,11 +7,11 @@ function [azProfile, H_TX, H_RX, physH] = genRandomAzProfile(prm, BsArrayPos, ..
    % D the dimension of the array
    
    azBins = prm.K;
-   nScat = 3;
+   nScat = 2;
 
    thetaBins = thetaMin:(thetaMax-thetaMin)/(azBins-1):thetaMax;
 
-   azProfile = zeros(1, azBins);
+   azProfile = zeros(azBins, 1);
    scatAngs = randperm(azBins, nScat);
     
    azProfile(scatAngs) = complex(1, 1) / sqrt(2);
