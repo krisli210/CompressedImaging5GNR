@@ -1,8 +1,8 @@
 %% Comm-defined imaging of a MIMO scattering channel
 close all
-clear 
+% clear 
 
-rng(412);
+rng(42);
 % Begin with a PoC script utilizing randomized beamforming
 % and 5GNR data packets formed with the 5GNR comm toolbox
 
@@ -72,9 +72,6 @@ channelRADAR.MaximumDelaySource = 'Auto';
 maxChDelay = ceil(max(tau)*channelRADAR.SampleRate);
 % % % RADAR Channel Block
 
-%tx signal construction
-x = constructTxSignal(prm);
-
 % [RefImg, z, H_TX, H_RX, physH] = genRandomRefImage(prm, ScatPosCart, ScatCoeffs, ...
 %                                      getElementPosition(BsArray), getElementPosition(RxArray), ... 
 %                                      rMax, thetaMin, thetaMax); 
@@ -82,8 +79,12 @@ x = constructTxSignal(prm);
 [azProfile, H_TX, H_RX, physH] = genRandomAzProfile(prm, ...
                                                     thetaMin, thetaMax ...
                                                     );
+
 % figure;
 % pattern(BsArray,prm.CenterFreq, Weights=H_TX, EL=0)
+
+%tx signal construction
+x = constructTxSignal(prm, H_TX);
 
 % y = channelRADAR(x.').'; 
 W = eye(size(H_RX, 1));
@@ -99,23 +100,24 @@ A = Phi * Psi;
 % % % Native Solvers 
 
 sensingDict = sensingDictionary('CustomDictionary', A);
-[z_hat, YI, I, R] = matchingPursuit(sensingDict, y_vec, maxIterations=100, Algorithm="OMP", maxerr={"L1", 1e-4});
+[z_hat, YI, I, R] = matchingPursuit(sensingDict, y_vec, maxIterations=10, Algorithm="OMP", maxerr={"L1", 1e-4});
+
+A_sub = Phi * Psi(:, I); % Solve magnitude posthence via direct linsolve against estimated support
+mags = linsolve(A_sub, y_vec);
+z_hat(I) = mags;
 
 % if  (find(z_hat) == find(azProfile))
 %     disp('Correct AoA Estimation');
 % end
 figure; hold on; 
 stem(-60:120/(prm.K-1):60, abs(azProfile));
-stem(-60:120/(prm.K-1):60, abs(z_hat));
+stem(-60:120/(prm.K-1):60, abs(z_hat), '--x');
 
+legend({'True', 'Estimate'})
 % Magnitude issue must fall to the MP algorithm since everythign else is just thrown into A 
 
 % % % 
-% 
-% z_hat_lin = linsolve(A, y_vec);
-% figure; hold on;
-% stem(-60:120/(prm.K-1):60, abs(azProfile));
-% stem(-60:120/(prm.K-1):60, abs(z_hat_lin));
+
 
 
 
