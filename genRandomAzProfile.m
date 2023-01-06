@@ -1,13 +1,13 @@
 function [azProfile, H_TX, H_RX, physH] = genRandomAzProfile(prm, ...
-                                                            thetaMin, thetaMax, ...
-                                                            BsSteer, RxSteer)
+                                                            thetaMin, thetaMax ...
+                                                            )
 
    % Generate azimuth profile demonstrating incoherent DFT dictionaries
    % BsArrayPos, RxArrayPos are NumBsElements x D, NumRxElements x D
    % D the dimension of the array
    
    azBins = prm.K;
-   nScat = 2;
+   nScat = 1;
 
    thetaBins = thetaMin:(thetaMax-thetaMin)/(azBins-1):thetaMax;
 
@@ -25,8 +25,8 @@ function [azProfile, H_TX, H_RX, physH] = genRandomAzProfile(prm, ...
    H_RX = zeros(prm.NumRxElements, azBins);
 
    for k = 1:azBins
-        H_TX(:, k) = BsSteer(prm.CenterFreq, thetaBins(k));
-        H_RX(:, k) = RxSteer(prm.CenterFreq, thetaBins(k));
+        H_TX(:, k) = (1/sqrt(prm.NumBsElements)) * exp(-1j * pi * (0:prm.NumBsElements-1) * sind(thetaBins(k))).';
+        H_RX(:, k) = (1/sqrt(prm.NumBsElements)) * exp(-1j * pi * (0:prm.NumRxElements-1) * sind(thetaBins(k))).';
    end
    physH = H_RX * diag(azProfile) * H_TX.';
 

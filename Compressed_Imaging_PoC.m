@@ -2,7 +2,7 @@
 close all
 clear 
 
-rng(42);
+rng(412);
 % Begin with a PoC script utilizing randomized beamforming
 % and 5GNR data packets formed with the 5GNR comm toolbox
 
@@ -15,22 +15,22 @@ prm.PropagationSpeed = c;
 prm.lam = c/prm.CenterFreq;
 
 prm.BsPos = [0; 0; 0];
-prm.BsArraySize = [4 4]; %BS Dimension
+prm.BsArraySize = 16; %BS Dimension
 prm.NumBsElements = prod(prm.BsArraySize);
 prm.BsAZlim = [-60 60];
 prm.BsELlim = [-90 0];
 
 prm.RxPos = [0; 0; 0];
-prm.RxArraySize = [4 4];
+prm.RxArraySize = 16;
 prm.NumRxElements = prod(prm.RxArraySize);
 prm.RxAZlim = prm.BsAZlim;
 prm.RxELlim = [-90 0];
 
 prm.NumUsers = 4;
-prm.NumPackets = 1;
+prm.NumPackets = 100;
 prm.Ns = 1; %number of symbols per packet
 prm.M = 2; %modulation order
-prm.K = 32; %number of grid spots, i.e. dimension of the quantized azimuth profile
+prm.K = 64; %number of grid spots, i.e. dimension of the quantized azimuth profile
 
 angles = prm.BsAZlim(1):(prm.BsAZlim(2)-prm.BsAZlim(1))/(prm.NumPackets-1):prm.BsAZlim(2);
 %Arrays as uniform rectangular given in PA toolbox
@@ -79,11 +79,9 @@ x = constructTxSignal(prm);
 %                                      getElementPosition(BsArray), getElementPosition(RxArray), ... 
 %                                      rMax, thetaMin, thetaMax); 
 
-BsSteer = phased.SteeringVector('SensorArray', BsArray);
-RxSteer = phased.SteeringVector('SensorArray', RxArray);
 [azProfile, H_TX, H_RX, physH] = genRandomAzProfile(prm, ...
-                                                    thetaMin, thetaMax, ...
-                                                    BsSteer, RxSteer);
+                                                    thetaMin, thetaMax ...
+                                                    );
 % figure;
 % pattern(BsArray,prm.CenterFreq, Weights=H_TX, EL=0)
 
@@ -94,22 +92,31 @@ NNs = size(H_RX, 1) * size(y, 2);
 y_vec = reshape(y, [NNs 1]);
 
 Phi = kron(x.', W); % this is full rank necessarily
-Psi = kr(H_TX, H_RX); % this is problematic
+Psi = kr(H_TX, H_RX); % 
+% Psi = kron(H_TX', H_RX);
 A = Phi * Psi;
-
-% x0 = complex(randn(prm.K, 1), randn(prm.K, 1));
-% epsilon = 1e-6;
-% z_hat = l1qc_logbarrier(x0, A, [], y_vec, epsilon);
 
 % % % Native Solvers 
 
 sensingDict = sensingDictionary('CustomDictionary', A);
-[z_hat, YI, I, R] = matchingPursuit(sensingDict, y_vec, maxIterations=100, Algorithm="OMP", maxerr={"L1", 1e-1});
+[z_hat, YI, I, R] = matchingPursuit(sensingDict, y_vec, maxIterations=100, Algorithm="OMP", maxerr={"L1", 1e-4});
 
-if  (find(z_hat) == find(azProfile))
-    disp('Correct AoA Estimation');
-end
+% if  (find(z_hat) == find(azProfile))
+%     disp('Correct AoA Estimation');
+% end
+figure; hold on; 
+stem(-60:120/(prm.K-1):60, abs(azProfile));
+stem(-60:120/(prm.K-1):60, abs(z_hat));
+
+% Magnitude issue must fall to the MP algorithm since everythign else is just thrown into A 
+
 % % % 
+% 
+% z_hat_lin = linsolve(A, y_vec);
+% figure; hold on;
+% stem(-60:120/(prm.K-1):60, abs(azProfile));
+% stem(-60:120/(prm.K-1):60, abs(z_hat_lin));
+
 
 
 % figure;

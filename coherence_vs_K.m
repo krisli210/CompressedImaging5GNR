@@ -1,9 +1,10 @@
-close all
+% close all
 clear 
 
-figure; hold on;
+% figure; hold on;
 
-arr_dim = 16:16:64;
+% arr_dim = 16:16:64;
+arr_dim = 16;
 K = 8:256;
 arr_ind = 1;
 for arr = arr_dim
@@ -34,7 +35,6 @@ for arr = arr_dim
         
         thetaMin = prm.BsAZlim(1); thetaMax = prm.BsAZlim(2); %in Azimuth
         
-        angles = prm.BsAZlim(1):(prm.BsAZlim(2)-prm.BsAZlim(1))/(prm.NumPackets-1):prm.BsAZlim(2);
         %Arrays as uniform rectangular given in PA toolbox
         % BsArray = phased.URA(prm.BsArraySize, .5*prm.lam, 'Element', phased.IsotropicAntennaElement('BackBaffled', true));
         BsArray = phased.ULA(prm.NumBsElements, .5*prm.lam, 'Element', phased.IsotropicAntennaElement('BackBaffled', true));
@@ -45,9 +45,8 @@ for arr = arr_dim
         
         BsSteer = phased.SteeringVector('SensorArray', BsArray);
         RxSteer = phased.SteeringVector('SensorArray', RxArray);
-        [azProfile, H_TX, H_RX, physH] = genRandomAzProfile(prm, ...
-                                                            getElementPosition(BsArray), ...
-                                                            getElementPosition(RxArray), ...
+
+        [azProfile, H_TX, H_RX, physH] = genRandomAzProfile(prm, ...                          
                                                             thetaMin, thetaMax, ...
                                                             BsSteer, RxSteer);
         coh_phi(k_ind) = mutual_coherence(kr(H_TX, H_RX));
@@ -59,4 +58,4 @@ end
 title('Mutual Coherence of Dictionary vs. K');
 xlabel('K');
 ylabel('\mu(\Psi)');
-leg_string = string([repmat('M = N = ', 4, 1), num2str([16; 32; 48; 64])]);
+% leg_string = string([repmat('M = N = ', 4, 1), num2str([16; 32; 48; 64])]);
