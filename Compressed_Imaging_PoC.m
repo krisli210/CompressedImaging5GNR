@@ -17,17 +17,19 @@ prm.lam = c/prm.CenterFreq;
 prm.BsPos = [0; 0; 0];
 prm.BsArraySize = 16; %BS Dimension
 prm.NumBsElements = prod(prm.BsArraySize);
+prm.DeltaT = .5; % Element spacing normalized by wavelength
 prm.BsAZlim = [-60 60];
 prm.BsELlim = [-90 0];
 
 prm.RxPos = [0; 0; 0];
 prm.RxArraySize = 16;
+prm.DeltaR = prm.NumBsElements * .5; % Set for virtual array 
 prm.NumRxElements = prod(prm.RxArraySize);
 prm.RxAZlim = prm.BsAZlim;
 prm.RxELlim = [-90 0];
 
 prm.NumUsers = 4;
-prm.NumPackets = 100;
+prm.NumPackets = 4;
 prm.Ns = 1; %number of symbols per packet
 prm.M = 2; %modulation order
 prm.K = 64; %number of grid spots, i.e. dimension of the quantized azimuth profile
@@ -35,10 +37,10 @@ prm.K = 64; %number of grid spots, i.e. dimension of the quantized azimuth profi
 angles = prm.BsAZlim(1):(prm.BsAZlim(2)-prm.BsAZlim(1))/(prm.NumPackets-1):prm.BsAZlim(2);
 %Arrays as uniform rectangular given in PA toolbox
 % BsArray = phased.URA(prm.BsArraySize, .5*prm.lam, 'Element', phased.IsotropicAntennaElement('BackBaffled', true));
-BsArray = phased.ULA(prm.NumBsElements, .5*prm.lam, 'Element', phased.IsotropicAntennaElement('BackBaffled', true));
+BsArray = phased.ULA(prm.NumBsElements, prm.DeltaT*prm.lam, 'Element', phased.IsotropicAntennaElement('BackBaffled', true));
 
 % RxArray = phased.URA(prm.RxArraySize, .5*prm.lam, 'Element', phased.IsotropicAntennaElement);
-RxArray = phased.ULA(prm.NumRxElements, .5*prm.lam, 'Element', phased.IsotropicAntennaElement);
+RxArray = phased.ULA(prm.NumRxElements, prm.DeltaR*prm.lam, 'Element', phased.IsotropicAntennaElement);
 
 %Scatterer generation
 nScat = 2;
