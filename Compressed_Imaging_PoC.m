@@ -29,10 +29,11 @@ prm.RxAZlim = prm.BsAZlim;
 prm.RxELlim = [-90 0];
 
 prm.NumUsers = 4;
-prm.NumPackets = 4;
-prm.Ns = 1; %number of symbols per packet
+prm.NumPackets = 3;
+prm.Ns = 10; %number of symbols per packet
 prm.M = 2; %modulation order
-prm.K = 64; %number of grid spots, i.e. dimension of the quantized azimuth profile
+prm.K = 512; %number of grid spots, i.e. dimension of the quantized azimuth profile
+prm.NumTargets = 3;
 
 angles = prm.BsAZlim(1):(prm.BsAZlim(2)-prm.BsAZlim(1))/(prm.NumPackets-1):prm.BsAZlim(2);
 %Arrays as uniform rectangular given in PA toolbox
@@ -107,6 +108,8 @@ sensingDict = sensingDictionary('CustomDictionary', A);
 A_sub = Phi * Psi(:, I); % Solve magnitude posthence via direct linsolve against estimated support
 mags = linsolve(A_sub, y_vec);
 z_hat(I) = mags;
+
+[detect, falseAlarm] = measureDetection(azProfile, z_hat);
 
 % if  (find(z_hat) == find(azProfile))
 %     disp('Correct AoA Estimation');

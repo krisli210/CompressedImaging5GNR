@@ -7,8 +7,8 @@ function [azProfile, H_TX, H_RX, physH] = genRandomAzProfile(prm, ...
    % D the dimension of the array
    
    azBins = prm.K;
-   nScat = 3;
-
+   nScat = prm.NumTargets;
+ 
    thetaBins = thetaMin:(thetaMax-thetaMin)/(azBins-1):thetaMax;
 
    azProfile = zeros(azBins, 1);
