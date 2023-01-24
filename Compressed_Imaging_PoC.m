@@ -32,7 +32,7 @@ prm.NumUsers = 4;
 prm.NumPackets = 3;
 prm.Ns = 10; %number of symbols per packet
 prm.M = 2; %modulation order
-prm.K = 512; %number of grid spots, i.e. dimension of the quantized azimuth profile
+prm.K = 128; %number of grid spots, i.e. dimension of the quantized azimuth profile
 prm.NumTargets = 3;
 
 angles = prm.BsAZlim(1):(prm.BsAZlim(2)-prm.BsAZlim(1))/(prm.NumPackets-1):prm.BsAZlim(2);
@@ -117,6 +117,9 @@ z_hat(I) = mags;
 figure; hold on; 
 stem(-60:120/(prm.K-1):60, abs(azProfile));
 stem(-60:120/(prm.K-1):60, abs(z_hat), '--x');
+xlabel('\theta');
+ylabel('Magnitude');
+title('Azimuth Profile')
 
 legend({'True', 'Estimate'})
 % Magnitude issue must fall to the MP algorithm since everythign else is just thrown into A 
