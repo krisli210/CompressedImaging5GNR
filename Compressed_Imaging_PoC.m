@@ -28,8 +28,8 @@ prm.NumRxElements = prod(prm.RxArraySize);
 prm.RxAZlim = prm.BsAZlim;
 prm.RxELlim = [-90 0];
 
-prm.NumUsers = 4;
-prm.NumPackets = 3;
+prm.NumUsers = 7;
+prm.NumPackets = 9;
 prm.Ns = 10; %number of symbols per packet
 prm.M = 2; %modulation order
 prm.K = 128; %number of grid spots, i.e. dimension of the quantized azimuth profile
@@ -90,8 +90,10 @@ maxChDelay = ceil(max(tau)*channelRADAR.SampleRate);
 x = constructTxSignal(prm, H_TX);
 
 % y = channelRADAR(x.').'; 
+SNR = 10;
+n = sqrt(sigma_sq) * complex(randn(prm.NumRxElements, prm.NumPackets*prm.Ns), randn(prm.NumRxElements, prm.NumPackets*prm.Ns));
 W = eye(size(H_RX, 1));
-y = W * physH * x;
+y = awgn(W * physH * x, 10, 'measured');
 NNs = size(H_RX, 1) * size(y, 2);
 y_vec = reshape(y, [NNs 1]);
 
