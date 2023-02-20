@@ -1,6 +1,6 @@
 %% Comm-defined imaging of a MIMO scattering channel
 close all
-% clear 
+clear 
 
 rng(42);
 % Begin with a PoC script utilizing randomized beamforming
@@ -28,12 +28,11 @@ prm.NumRxElements = prod(prm.RxArraySize);
 prm.RxAZlim = prm.BsAZlim;
 prm.RxELlim = [-90 0];
 
-prm.NumUsers = 4;
-prm.NumPackets = 3;
-prm.Ns = 10; %number of symbols per packet
-prm.M = 2; %modulation order
-prm.K = 128; %number of grid spots, i.e. dimension of the quantized azimuth profile
-prm.NumTargets = 3;
+prm.NumUsers = 3;
+prm.NumPackets = 5; % number of slots
+prm.Ns = 14; %number of OFDM symbols per slot
+prm.K = 256; %number of grid spots, i.e. dimension of the quantized azimuth profile
+prm.NumTargets = 5;
 
 angles = prm.BsAZlim(1):(prm.BsAZlim(2)-prm.BsAZlim(1))/(prm.NumPackets-1):prm.BsAZlim(2);
 %Arrays as uniform rectangular given in PA toolbox
@@ -87,6 +86,7 @@ maxChDelay = ceil(max(tau)*channelRADAR.SampleRate);
 % pattern(BsArray,prm.CenterFreq, Weights=H_TX, EL=0)
 
 %tx signal construction
+prm.M = 2;
 x = constructTxSignal(prm, H_TX);
 
 % y = channelRADAR(x.').'; 
