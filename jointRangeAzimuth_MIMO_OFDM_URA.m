@@ -40,7 +40,7 @@ rng(432);
     %Arrays as uniform linear given in PA toolbox
     BsArray = phased.URA(prm.BsArraySize, prm.DeltaT*prm.lam, 'Element', phased.IsotropicAntennaElement('BackBaffled', true));
 
-    RxArray = phased.URA(prm.RxArraySize, prm.DeltaR*prm.lam, 'Element', phased.IsotropicAntennaElement);
+    RxArray = phased.URA(prm.RxArraySize, [prm.DeltaR*prm.lam .5*prm.lam], 'Element', phased.IsotropicAntennaElement);
     
     prm.N_theta = 32; %number of grid spots, i.e. dimension of the quantized azimuth profile
     thetaMin = prm.BsAZlim(1); thetaMax = prm.BsAZlim(2); %in Azimuth
@@ -89,14 +89,14 @@ rng(432);
     
 % Spatial Compression
     
-%     x = squeeze(mean(txGrid, 1)).';
-%     for k = 1:prm.K
-%         rxGrid(k, :, :) = exp(-1j * 2 * pi * tau * (prm.Delta_f * 1e3 * k + prm.CenterFreq)) .* rxGrid(k, :, :);
-%     end
-%     freqAvg = squeeze(mean(rxGrid, 1));
+    x = squeeze(mean(txGrid, 1)).';
+    for k = 1:prm.K
+        rxGrid(k, :, :) = exp(-1j * 2 * pi * tau * (prm.Delta_f * 1e3 * k + prm.CenterFreq)) .* rxGrid(k, :, :);
+    end
+    freqAvg = squeeze(mean(rxGrid, 1));
 
-    x = squeeze(txGrid(27, :, :)).';
-    freqAvg = squeeze(rxGrid(27, :, :));
+%     x = squeeze(txGrid(27, :, :)).';
+%     freqAvg = squeeze(rxGrid(27, :, :));
     W = eye(prm.NumRxElements);
     y_vec = reshape(freqAvg, [numel(freqAvg), 1]);
     

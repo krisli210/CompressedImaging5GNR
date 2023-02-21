@@ -46,16 +46,14 @@ rng(42);
     thetaMin = prm.BsAZlim(1); thetaMax = prm.BsAZlim(2); %in Azimuth
     prm.AzBins = thetaMin:(thetaMax-thetaMin)/(prm.N_theta-1):thetaMax;
 
-%     angles = prm.BsAZlim(1):(prm.BsAZlim(2)-prm.BsAZlim(1))/(prm.txCodebookEntries-1):prm.BsAZlim(2);
-%     BsSteeringVector = phased.SteeringVector("SensorArray", BsArray);
-%     prm.txCodebook = BsSteeringVector(prm.CenterFreq, angles);
-
     % Dictionary Construction
     H_TX = zeros(prm.NumBsElements, prm.N_theta);
     H_RX = zeros(prm.NumRxElements, prm.N_theta);
     for n = 1:prm.N_theta
-        H_TX(:, n) = (1/sqrt(prm.NumBsElements)) * exp(-1j * 2 * pi * prm.DeltaT * (0:prm.NumBsElements-1) * sind(prm.AzBins(n))).';
-        H_RX(:, n) = (1/sqrt(prm.NumRxElements)) * exp(-1j * 2 * pi * prm.DeltaR * (0:prm.NumRxElements-1) * sind(prm.AzBins(n))).';
+        H_TX(:, n) = (1/sqrt(prm.NumBsElements)) * exp(1j * 2 * pi * prm.DeltaT * (0:prm.NumBsElements-1) * sind(prm.AzBins(n))).';
+        H_RX(:, n) = (1/sqrt(prm.NumRxElements)) * exp(1j * 2 * pi * prm.DeltaR * (0:prm.NumRxElements-1) * sind(prm.AzBins(n))).';
+%         H_TX(:, n) = collectPlaneWave(BsArray, 1, [prm.AzBins(n), 0].', prm.CenterFreq);
+%         H_RX(:, n) = collectPlaneWave(RxArray, 1, [prm.AzBins(n), 0].', prm.CenterFreq);
     end
 % % % % % END Array Info
 
@@ -87,9 +85,13 @@ rng(42);
     
 % Spatial Compression
     
+%     for k = 1:prm.K
+%         rxGrid(k, :, :) = exp(-1j * 2 * pi * tau * (prm.Delta_f * 1e3 * k)) .* rxGrid(k, :, :);
+%     end
+    
 %     x = squeeze(mean(txGrid, 1)).';
 %     freqAvg = squeeze(mean(rxGrid, 1));
-
+    
     x = squeeze(txGrid(27, :, :)).';
     freqAvg = squeeze(rxGrid(27, :, :));
     W = eye(prm.NumRxElements);

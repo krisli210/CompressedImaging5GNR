@@ -1,6 +1,6 @@
 function [azProfile, H_TX, H_RX, physH] = genRandomAzProfile(prm, ...
-                                                            thetaMin, thetaMax ...
-                                                            )
+                                                            thetaMin, thetaMax, ...
+                                                            BsArray, RxArray)
 
    % Generate azimuth profile demonstrating incoherent DFT dictionaries
    % BsArrayPos, RxArrayPos are NumBsElements x D, NumRxElements x D
@@ -25,8 +25,10 @@ function [azProfile, H_TX, H_RX, physH] = genRandomAzProfile(prm, ...
    H_RX = zeros(prm.NumRxElements, azBins);
 
    for k = 1:azBins
-        H_TX(:, k) = (1/sqrt(prm.NumBsElements)) * exp(-1j * 2 * pi * prm.DeltaT * (0:prm.NumBsElements-1) * sind(thetaBins(k))).';
-        H_RX(:, k) = (1/sqrt(prm.NumBsElements)) * exp(-1j * 2 * pi * prm.DeltaR * (0:prm.NumRxElements-1) * sind(thetaBins(k))).';
+        H_TX(:, k) = (1/sqrt(prm.NumBsElements)) * exp(1j * 2 * pi * prm.DeltaT * (0:prm.NumBsElements-1) * sind(thetaBins(k))).';
+        H_RX(:, k) = (1/sqrt(prm.NumBsElements)) * exp(1j * 2 * pi * prm.DeltaR * (0:prm.NumRxElements-1) * sind(thetaBins(k))).';
+%         H_TX(:, k) = collectPlaneWave(BsArray, 1, [thetaBins(k), 0].', prm.CenterFreq);
+%         H_RX(:, k) = collectPlaneWave(RxArray, 1, [thetaBins(k), 0].', prm.CenterFreq);
    end
    physH = H_RX * diag(azProfile) * H_TX.';
 

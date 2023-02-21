@@ -2,7 +2,7 @@
 close all
 clear 
 
-rng(42);
+rng(4423);
 % Begin with a PoC script utilizing randomized beamforming
 % and 5GNR data packets formed with the 5GNR comm toolbox
 
@@ -28,20 +28,20 @@ prm.NumRxElements = prod(prm.RxArraySize);
 prm.RxAZlim = prm.BsAZlim;
 prm.RxELlim = [-90 0];
 
-prm.NumUsers = 7;
+prm.NumUsers = 3;
 prm.NumPackets = 9;
-prm.Ns = 10; %number of symbols per packet
+prm.Ns = 3; %number of symbols per packet
 prm.M = 2; %modulation order
-prm.K = 128; %number of grid spots, i.e. dimension of the quantized azimuth profile
+prm.K = 512; %number of grid spots, i.e. dimension of the quantized azimuth profile
 prm.NumTargets = 3;
 
 angles = prm.BsAZlim(1):(prm.BsAZlim(2)-prm.BsAZlim(1))/(prm.NumPackets-1):prm.BsAZlim(2);
 %Arrays as uniform rectangular given in PA toolbox
 % BsArray = phased.URA(prm.BsArraySize, .5*prm.lam, 'Element', phased.IsotropicAntennaElement('BackBaffled', true));
-BsArray = phased.ULA(prm.NumBsElements, prm.DeltaT*prm.lam, 'Element', phased.IsotropicAntennaElement('BackBaffled', true));
+BsArray = phased.ULA(prm.NumBsElements, prm.DeltaT*prm.lam, 'Element', phased.IsotropicAntennaElement('BackBaffled', true), 'ArrayAxis', 'y');
 
 % RxArray = phased.URA(prm.RxArraySize, .5*prm.lam, 'Element', phased.IsotropicAntennaElement);
-RxArray = phased.ULA(prm.NumRxElements, prm.DeltaR*prm.lam, 'Element', phased.IsotropicAntennaElement);
+RxArray = phased.ULA(prm.NumRxElements, .5*prm.lam, 'Element', phased.IsotropicAntennaElement, 'ArrayAxis', 'y');
 
 %Scatterer generation
 nScat = 2;
@@ -80,8 +80,8 @@ maxChDelay = ceil(max(tau)*channelRADAR.SampleRate);
 %                                      rMax, thetaMin, thetaMax); 
 
 [azProfile, H_TX, H_RX, physH] = genRandomAzProfile(prm, ...
-                                                    thetaMin, thetaMax ...
-                                                    );
+                                                    thetaMin, thetaMax, ...
+                                                    BsArray, RxArray);
 
 % figure;
 % pattern(BsArray,prm.CenterFreq, Weights=H_TX, EL=0)
@@ -92,7 +92,7 @@ x = constructTxSignal(prm, H_TX);
 
 % y = channelRADAR(x.').'; 
 SNR = 10;
-n = sqrt(sigma_sq) * complex(randn(prm.NumRxElements, prm.NumPackets*prm.Ns), randn(prm.NumRxElements, prm.NumPackets*prm.Ns));
+% n = sqrt(sigma_sq) * complex(randn(prm.NumRxElements, prm.NumPackets*prm.Ns), randn(prm.NumRxElements, prm.NumPackets*prm.Ns));
 W = eye(size(H_RX, 1));
 y = awgn(W * physH * x, 10, 'measured');
 NNs = size(H_RX, 1) * size(y, 2);
