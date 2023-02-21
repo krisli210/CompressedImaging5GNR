@@ -28,20 +28,12 @@ prm.NumRxElements = prod(prm.RxArraySize);
 prm.RxAZlim = prm.BsAZlim;
 prm.RxELlim = [-90 0];
 
-<<<<<<< HEAD
-prm.NumUsers = 3;
-prm.NumPackets = 5; % number of slots
-prm.Ns = 14; %number of OFDM symbols per slot
-prm.K = 256; %number of grid spots, i.e. dimension of the quantized azimuth profile
-prm.NumTargets = 5;
-=======
 prm.NumUsers = 7;
 prm.NumPackets = 9;
 prm.Ns = 10; %number of symbols per packet
 prm.M = 2; %modulation order
 prm.K = 128; %number of grid spots, i.e. dimension of the quantized azimuth profile
 prm.NumTargets = 3;
->>>>>>> 567e960bee8227745bfe8137e48eafa929414dae
 
 angles = prm.BsAZlim(1):(prm.BsAZlim(2)-prm.BsAZlim(1))/(prm.NumPackets-1):prm.BsAZlim(2);
 %Arrays as uniform rectangular given in PA toolbox

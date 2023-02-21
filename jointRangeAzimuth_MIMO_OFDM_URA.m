@@ -1,7 +1,7 @@
 close all
 clear 
 
-rng(42);
+rng(432);
 
 
 % % % carrier config
@@ -24,38 +24,40 @@ rng(42);
 % % % % % Array and Channel Info
 
     prm.BsPos = [0; 0; 0];
-    prm.BsArraySize = 16; %BS Dimension
+    prm.BsArraySize = [8 8]; %BS Dimension
     prm.NumBsElements = prod(prm.BsArraySize);
     prm.DeltaT = .5; % Element spacing normalized by wavelength
     prm.BsAZlim = [-60 60];
     prm.BsELlim = [-90 0];
     
     prm.RxPos = [0; 0; 0];
-    prm.RxArraySize = 16;
-    prm.DeltaR = prm.NumBsElements * .5; % Set for virtual array 
+    prm.RxArraySize = [8 8];
+    prm.DeltaR = sqrt(prm.NumBsElements) * .5; % Set for virtual array 
     prm.NumRxElements = prod(prm.RxArraySize);
     prm.RxAZlim = prm.BsAZlim;
     prm.RxELlim = [-90 0];
     
     %Arrays as uniform linear given in PA toolbox
-    BsArray = phased.ULA(prm.NumBsElements, prm.DeltaT*prm.lam, 'Element', phased.IsotropicAntennaElement('BackBaffled', true), 'ArrayAxis', 'y');
+    BsArray = phased.URA(prm.BsArraySize, prm.DeltaT*prm.lam, 'Element', phased.IsotropicAntennaElement('BackBaffled', true));
+
+    RxArray = phased.URA(prm.RxArraySize, prm.DeltaR*prm.lam, 'Element', phased.IsotropicAntennaElement);
     
-    RxArray = phased.ULA(prm.NumRxElements, prm.DeltaR*prm.lam, 'Element', phased.IsotropicAntennaElement,'ArrayAxis', 'y');
-    
-    prm.N_theta = 64; %number of grid spots, i.e. dimension of the quantized azimuth profile
+    prm.N_theta = 32; %number of grid spots, i.e. dimension of the quantized azimuth profile
     thetaMin = prm.BsAZlim(1); thetaMax = prm.BsAZlim(2); %in Azimuth
     prm.AzBins = thetaMin:(thetaMax-thetaMin)/(prm.N_theta-1):thetaMax;
 
-%     angles = prm.BsAZlim(1):(prm.BsAZlim(2)-prm.BsAZlim(1))/(prm.txCodebookEntries-1):prm.BsAZlim(2);
-%     BsSteeringVector = phased.SteeringVector("SensorArray", BsArray);
-%     prm.txCodebook = BsSteeringVector(prm.CenterFreq, angles);
+    angles = prm.BsAZlim(1):(prm.BsAZlim(2)-prm.BsAZlim(1))/(prm.N_theta-1):prm.BsAZlim(2);
+    BsSteeringVector = phased.SteeringVector("SensorArray", BsArray);
+    RxSteeringVector = phased.SteeringVector("SensorArray", RxArray);
 
     % Dictionary Construction
     H_TX = zeros(prm.NumBsElements, prm.N_theta);
     H_RX = zeros(prm.NumRxElements, prm.N_theta);
     for n = 1:prm.N_theta
-        H_TX(:, n) = (1/sqrt(prm.NumBsElements)) * exp(-1j * 2 * pi * prm.DeltaT * (0:prm.NumBsElements-1) * sind(prm.AzBins(n))).';
-        H_RX(:, n) = (1/sqrt(prm.NumRxElements)) * exp(-1j * 2 * pi * prm.DeltaR * (0:prm.NumRxElements-1) * sind(prm.AzBins(n))).';
+        H_TX(:, n) = collectPlaneWave(BsArray, 1, [angles(n), 0].', prm.CenterFreq);
+        H_RX(:, n) = collectPlaneWave(RxArray, 1, [angles(n), 0].', prm.CenterFreq);
+%         H_TX(:, n) = BsSteeringVector(prm.CenterFreq, [angles(n)]);
+%         H_RX(:, n) = RxSteeringVector(prm.CenterFreq, [angles(n)]);
     end
 % % % % % END Array Info
 
@@ -64,7 +66,7 @@ rng(42);
     prm.NumUsers = 3;
     prm.N_T = 9; % number of time slots
     prm.Nofdm = 14; %number of OFDM symbols per slot
-    prm.MCS = 4; %modulation order
+    prm.MCS = 16; %modulation order
 
     txGrid = genFreqTxGrid(prm.NumBsElements, prm.NumUsers, prm.MCS, prm.N_T, prm.Nofdm, prm.K, H_TX);
 
@@ -75,7 +77,7 @@ rng(42);
 
 % % % % % % % Target Construction
     prm.NumTargets = 1;
-    prm.rMin = 40; prm.rMax = 100;
+    prm.rMin = 40; prm.rMax = 40;
 
     [channel, azProfile, ScatPosCart, ScatPosPol] = genChannel(prm, BsArray, RxArray);
 % % % % % % % END Target Construction
@@ -88,13 +90,16 @@ rng(42);
 % Spatial Compression
     
 %     x = squeeze(mean(txGrid, 1)).';
+%     for k = 1:prm.K
+%         rxGrid(k, :, :) = exp(-1j * 2 * pi * tau * (prm.Delta_f * 1e3 * k + prm.CenterFreq)) .* rxGrid(k, :, :);
+%     end
 %     freqAvg = squeeze(mean(rxGrid, 1));
 
     x = squeeze(txGrid(27, :, :)).';
     freqAvg = squeeze(rxGrid(27, :, :));
     W = eye(prm.NumRxElements);
     y_vec = reshape(freqAvg, [numel(freqAvg), 1]);
-
+    
     Phi_az = kron(x.', W);
     Psi_az = kr(H_TX, H_RX);
 
@@ -108,16 +113,21 @@ rng(42);
     z_hat(I) = mags;
     
 %     z_hat = linsolve(A, y_vec);
-    figure; hold on; 
+    figure; 
+    subplot(1, 2, 1); hold on;
     stem(-60:120/(prm.N_theta-1):60, abs(azProfile)*max(abs(z_hat)), '--o');
     stem(-60:120/(prm.N_theta-1):60, abs(z_hat), '--x');
     xlabel('\theta');
     ylabel('Magnitude');
     title('Azimuth Profile')
     
-    legend({'True', 'Estimate'})
+    legend({'True', 'Estimate'}, 'Location', 'south')
     % END Spatial Compression
-
+    
+    subplot(1, 2, 2);
+    M = 1; % IFFT oversample
+    range = (0:1/M:prm.K-(1/M))*prm.PropagationSpeed./(2*prm.Delta_f*1e3*prm.K);
+    plot(abs(ifft(mean(rxGrid./txGrid, [2 3]))))
 % % %
 
 show_scene = false;
@@ -125,8 +135,7 @@ if (show_scene)
 %     wT = BsSteeringVector(prm.CenterFreq,BsBeamAng(:,maxBlockRADAR));
 %     wR = RxSteeringVector(prm.CenterFreq, RxBeamAng(:, maxBlockRADAR));
     txAngles = randperm(size(H_TX, 2), prm.NumUsers);
-    F = 1./sqrt(prm.NumUsers) * H_TX(:, txAngles); % M x U
-    wT = complex(randn(prm.NumBsElements, 1), randn(prm.NumBsElements, 1));
+    F = sum(1./sqrt(prm.NumUsers) * H_TX(:, txAngles), 2); % M x U
 %     wR = complex(randn(64, 1), randn(64, 1));
     wR = .001*ones(prm.NumRxElements, 1);
 
@@ -148,6 +157,7 @@ if (show_scene)
 %     end
     view(2);
 end
+
 function [txGrid] = genFreqTxGrid(M, U, MCS, N_T, Nofdm, K, txCodebook)
     % txGrid output is K x (Nofdm * N_T) x M
     txGrid = zeros(K, Nofdm * N_T, M);
