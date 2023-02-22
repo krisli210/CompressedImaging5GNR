@@ -12,7 +12,7 @@ rng(42);
 
     prm.Delta_f = 120; % SCS in KHz
     
-    prm.K = 512; %number of subcarriers = 12 subcarriers per RB * NRB - DOES NOT MATCH NFFT?
+    prm.K = 512;
     
 % % % END OFDM Signal Params
 
@@ -43,18 +43,18 @@ rng(42);
     
     M = 1; %ifft oversampling factor
     prm.delta_R = prm.PropagationSpeed./(2*prm.Delta_f*1e3*prm.K); % nominal range resolution
-    prm.N_R = 64;
-    prm.RangeBins = prm.delta_R:prm.delta_R:(prm.N_R-1)*prm.delta_R;
+    prm.N_R = prm.K;
+    prm.RangeBins = 0:prm.delta_R:(prm.N_R-1)*prm.delta_R;
     maxRange = prm.RangeBins(end);
 
     % Dictionary Construction
     H_TX = zeros(prm.NumBsElements, prm.N_theta);
     H_RX = zeros(prm.NumRxElements, prm.N_theta);
     for n = 1:prm.N_theta
-%         H_TX(:, n) = (1/sqrt(prm.NumBsElements)) * exp(1j * 2 * pi * prm.DeltaT * (0:prm.NumBsElements-1) * sind(prm.AzBins(n))).';
-%         H_RX(:, n) = (1/sqrt(prm.NumRxElements)) * exp(1j * 2 * pi * prm.DeltaR * (0:prm.NumRxElements-1) * sind(prm.AzBins(n))).';
-        H_TX(:, n) = collectPlaneWave(BsArray, 1, [prm.AzBins(n), 0].', prm.CenterFreq);
-        H_RX(:, n) = collectPlaneWave(RxArray, 1, [prm.AzBins(n), 0].', prm.CenterFreq);
+        H_TX(:, n) = (1/sqrt(prm.NumBsElements)) * exp(1j * 2 * pi * prm.DeltaTX * (0:prm.NumBsElements-1) * sind(prm.AzBins(n))).';
+        H_RX(:, n) = (1/sqrt(prm.NumRxElements)) * exp(1j * 2 * pi * prm.DeltaRX * (0:prm.NumRxElements-1) * sind(prm.AzBins(n))).';
+%         H_TX(:, n) = collectPlaneWave(BsArray, 1, [prm.AzBins(n), 0].', prm.CenterFreq);
+%         H_RX(:, n) = collectPlaneWave(RxArray, 1, [prm.AzBins(n), 0].', prm.CenterFreq);
     end
 % % % % % END Array Info
 
@@ -83,7 +83,40 @@ rng(42);
     for k = 1:prm.K
         Y_tens(:, :, k) = (H_tens(:, :, k) * txGrid(:, :, k).').';
     end
+    
+    W = eye(prm.NumRxElements);
+    x = squeeze(txGrid(1, :, :));
+    y = squeeze(Y_tens(1, :, :));
+    y_vec = reshape(y, [numel(y), 1]);
+
+    Phi = kron(x.', W); % this is full rank necessarily
+    Psi = kr(H_TX, H_RX); % 
+    A = Phi * Psi;
+    
+    sensingDict = sensingDictionary('CustomDictionary', A);
+    [z_hat, YI, I, R] = matchingPursuit(sensingDict, y_vec, maxIterations=10, Algorithm="OMP", maxerr={"L1", 1e-4});
+    
+    A_sub = Phi * Psi(:, I); % Solve magnitude posthence via direct linsolve against estimated support
+    mags = linsolve(A_sub, y_vec);
+    z_hat(I) = mags;
 % % %
+    
+    figure; 
+    subplot(1, 2, 1); hold on; 
+    stem(-60:120/(prm.N_theta-1):60, abs(sum(RangeAzProfile, 1)));
+    stem(-60:120/(prm.N_theta-1):60, abs(z_hat), '--x');
+    xlabel('\theta');
+    ylabel('Magnitude');
+    title('Azimuth Profile')
+    
+%     legend({'True', 'Estimate'})  
+
+    subplot(1, 2, 2); hold on;
+    stem(prm.RangeBins, abs(sum(RangeAzProfile, 2)));
+    range_estimate = abs(ifft( ...
+    squeeze(mean(Y_tens, [1 2])) ./ squeeze(mean(txGrid, [1 2])) ...
+    ));
+    plot(prm.RangeBins, range_estimate);
 
 function [txGrid] = genFreqTxGrid(M, U, MCS, N_T, Nofdm, K, txCodebook)
     %Generates baseband equivalent frequency-domain signaling
@@ -113,10 +146,12 @@ function [H_tens, RangeAzProfile, ScatPosPol] = genGridChannel(prm)
     % H _tens output as N x M x K
     % RangeAzProfile as N_R x N_theta
     % ScatPosPol as 3 x L
+    maxRangeBin = find(prm.RangeBins > prm.rMax, 1, 'first');
     azInd = randperm(prm.N_theta, prm.L);
-    rangeInd = randperm(prm.N_R, prm.L);
+    rangeInd = randperm(maxRangeBin, prm.L);
     
     azValues = prm.AzBins(azInd);
+    azValues = 0; % Fix az to 0 to test ranging
     rangeValues = prm.RangeBins(rangeInd);
     ScatPosPol = [rangeValues; azValues; zeros(1, prm.L)];
     ScatCoeff = ones(1, 3) .* complex(1, 1) ./ sqrt(2); %Unit reflectors
@@ -124,7 +159,6 @@ function [H_tens, RangeAzProfile, ScatPosPol] = genGridChannel(prm)
     RangeAzProfile = zeros(prm.N_R, prm.N_theta);
     H_tens = zeros(prm.NumRxElements, prm.NumBsElements, prm.K);
     for l = 1:prm.L
-        RangeAzProfile(rangeInd(l), azInd(l)) = ScatCoeff(l);
         tau_r = 2*rangeValues(l) / prm.PropagationSpeed;
         tau_m = prm.DeltaTX * (0:prm.NumBsElements-1)*sind(azValues(l)); %Check this
         tau_n = prm.DeltaRX * (0:prm.NumRxElements-1)*sind(azValues(l));
@@ -136,10 +170,11 @@ function [H_tens, RangeAzProfile, ScatPosPol] = genGridChannel(prm)
             end
         end
 
-        tau_total = tau_r + tau_n_m;
+%         tau_total = tau_r + tau_n_m;
         PL = (4*pi*rangeValues(l)/prm.lam)^-2;
+        RangeAzProfile(rangeInd(l), azInd(l)) = PL*ScatCoeff(l);
         for k = 1:prm.K
-            H_tens(:, :, k) = H_tens(:, :, k) + PL*ScatCoeff(l)*exp(-1j * 2*pi * (k*prm.Delta_f*1e3) .* tau_total);
+            H_tens(:, :, k) = H_tens(:, :, k) + PL*ScatCoeff(l)*exp(-1j * 2*pi * (k*prm.Delta_f*1e3*tau_r + tau_n_m)); % Is the az-induced delay scaled by freq?
         end
     end
 end
