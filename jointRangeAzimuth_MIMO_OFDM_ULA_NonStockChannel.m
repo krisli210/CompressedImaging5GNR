@@ -66,7 +66,7 @@ rng(42);
     prm.MCS = 16; %modulation order
     
     %Generates baseband frequency-domain signal across freq-time-space
-    txGrid = genFreqTxGrid(prm.NumBsElements, prm.NumUsers, prm.MCS, prm.N_T, prm.Nofdm, prm.K, H_TX); % K x (Nofdm * N_T) x M
+    txGrid = genFreqTxGrid(prm.NumBsElements, prm.NumUsers, prm.MCS, prm.N_T, prm.Nofdm, prm.K, H_TX); %(Nofdm * N_T) x M x K
     
 % % % END Transmit Signal Construction
 
@@ -75,21 +75,25 @@ rng(42);
     prm.rMin = 40; prm.rMax = 100;
 
     [H_tens, RangeAzProfile, ScatPosPol] = genGridChannel(prm);
+    
 % % % % % % % END Target Construction
 
 % % % Receive Processing
-    
+    Y_tens = zeros(prm.Nofdm * prm.N_T, prm.NumRxElements, prm.K);
+    for k = 1:prm.K
+        Y_tens(:, :, k) = (H_tens(:, :, k) * txGrid(:, :, k).').';
+    end
 % % %
 
 function [txGrid] = genFreqTxGrid(M, U, MCS, N_T, Nofdm, K, txCodebook)
     %Generates baseband equivalent frequency-domain signaling
-    % txGrid output is K x (Nofdm * N_T) x M
-    txGrid = zeros(K, Nofdm * N_T, M);
+    % txGrid output is (Nofdm * N_T) x M x K
+    txGrid = zeros(Nofdm * N_T, M, K);
 
-    sIndices = randi([0 MCS-1], [K, Nofdm * N_T, U]);     % per user symbols given as K x Nofdm * N_T x U
+    sIndices = randi([0 MCS-1], [Nofdm * N_T, U, K]);     % per user symbols given as  Nofdm * N_T x U x K
     s = qammod(sIndices, MCS, 'UnitAveragePower', true); 
     
-    % precoded transmit symbols given as K x Nofdm * N_T x M
+    % precoded transmit symbols given as Nofdm * N_T x M x K
 
     % Loop over subcarriers and slots because idk how to tensorize this
     for k = 1:K % FIXME: actually beamforming per RB 
@@ -98,8 +102,8 @@ function [txGrid] = genFreqTxGrid(M, U, MCS, N_T, Nofdm, K, txCodebook)
             F = 1./sqrt(U) * txCodebook(:, txAngles); % M x U
             for nofdm = 1:Nofdm
                 startTimeIndex = (Nofdm * (n_T - 1));
-                s_slice = squeeze(s(k, startTimeIndex + nofdm, :)); % U x 1
-                txGrid(k, startTimeIndex + nofdm, :) = F*s_slice;
+                s_slice = squeeze(s(startTimeIndex + nofdm, :, k)); % U x 1
+                txGrid(startTimeIndex + nofdm, :, k) = F*s_slice.';
             end
         end
     end
