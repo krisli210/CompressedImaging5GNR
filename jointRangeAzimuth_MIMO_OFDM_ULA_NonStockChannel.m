@@ -19,7 +19,7 @@ rng(42);
 % % % % % Array and Channel Info
 
     prm.BsPos = [0; 0; 0];
-    prm.BsArraySize = 16; %BS Dimension
+    prm.BsArraySize = 18; %BS Dimension
     prm.NumBsElements = prod(prm.BsArraySize);
     prm.DeltaTX = .5; % Element spacing normalized by wavelength
     prm.BsAZlim = [-60 60];
@@ -51,8 +51,8 @@ rng(42);
     H_TX = zeros(prm.NumBsElements, prm.N_theta);
     H_RX = zeros(prm.NumRxElements, prm.N_theta);
     for n = 1:prm.N_theta
-        H_TX(:, n) = (1/sqrt(prm.NumBsElements)) * exp(1j * 2 * pi * prm.DeltaTX * (0:prm.NumBsElements-1) * sind(prm.AzBins(n))).';
-        H_RX(:, n) = (1/sqrt(prm.NumRxElements)) * exp(1j * 2 * pi * prm.DeltaRX * (0:prm.NumRxElements-1) * sind(prm.AzBins(n))).';
+        H_TX(:, n) = (1/sqrt(prm.NumBsElements)) * exp(-1j * 2 * pi * prm.DeltaTX * (0:prm.NumBsElements-1) * sind(prm.AzBins(n))).';
+        H_RX(:, n) = (1/sqrt(prm.NumRxElements)) * exp(-1j * 2 * pi * prm.DeltaRX * (0:prm.NumRxElements-1) * sind(prm.AzBins(n))).';
 %         H_TX(:, n) = collectPlaneWave(BsArray, 1, [prm.AzBins(n), 0].', prm.CenterFreq);
 %         H_RX(:, n) = collectPlaneWave(RxArray, 1, [prm.AzBins(n), 0].', prm.CenterFreq);
     end
@@ -85,8 +85,10 @@ rng(42);
     end
     
     W = eye(prm.NumRxElements);
-    x = squeeze(txGrid(1, :, :));
-    y = squeeze(Y_tens(1, :, :));
+    x = squeeze(txGrid(:, :, 1)).'; % Space x Time N x Nofdm * N_T
+    y = squeeze(Y_tens(:, :, 1)).';
+%     x = squeeze(mean(txGrid, 3)).';
+%     y = squeeze(mean(Y_tens, 3));
     y_vec = reshape(y, [numel(y), 1]);
 
     Phi = kron(x.', W); % this is full rank necessarily
@@ -109,12 +111,17 @@ rng(42);
     ylabel('Magnitude');
     title('Azimuth Profile')
     
+    SV_est = sum(H_RX(:, I), 2); % steering vector towards the determined az bins
 %     legend({'True', 'Estimate'})  
-
+    
+    Y_tens_az_comp = zeros(size(Y_tens));
+    for n = 1:prm.NumRxElements
+        Y_tens_az_comp(:, n, :) = Y_tens(:, n, :) .* exp(1j * 2 * pi * SV_est(n));
+    end
     subplot(1, 2, 2); hold on;
     stem(prm.RangeBins, abs(sum(RangeAzProfile, 2)));
     range_estimate = abs(ifft( ...
-    squeeze(mean(Y_tens, [1 2])) ./ squeeze(mean(txGrid, [1 2])) ...
+    squeeze(mean(Y_tens_az_comp, [1 2])) ./ squeeze(mean(txGrid, [1 2])) ...
     ));
     plot(prm.RangeBins, range_estimate);
 
@@ -151,8 +158,9 @@ function [H_tens, RangeAzProfile, ScatPosPol] = genGridChannel(prm)
     rangeInd = randperm(maxRangeBin, prm.L);
     
     azValues = prm.AzBins(azInd);
-    azValues = 0; % Fix az to 0 to test ranging
+%     azValues = zeros(1, prm.L); % Fix az to 0 to test ranging
     rangeValues = prm.RangeBins(rangeInd);
+%     rangeValues = ones(1, prm.L); % Fix range to 0 to test spatial compression
     ScatPosPol = [rangeValues; azValues; zeros(1, prm.L)];
     ScatCoeff = ones(1, 3) .* complex(1, 1) ./ sqrt(2); %Unit reflectors
 
@@ -177,4 +185,5 @@ function [H_tens, RangeAzProfile, ScatPosPol] = genGridChannel(prm)
             H_tens(:, :, k) = H_tens(:, :, k) + PL*ScatCoeff(l)*exp(-1j * 2*pi * (k*prm.Delta_f*1e3*tau_r + tau_n_m)); % Is the az-induced delay scaled by freq?
         end
     end
+    H_tens = H_tens ./ prm.NumBsElements; %Power norm
 end
