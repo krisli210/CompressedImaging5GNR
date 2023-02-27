@@ -28,6 +28,7 @@ rng(42);
     prm.RxPos = [0; 0; 0];
     prm.RxArraySize = 15;
     prm.DeltaRX = prm.NumBsElements * .5; % Set for virtual array 
+%     prm.DeltaRX = .5;
     prm.NumRxElements = prod(prm.RxArraySize);
     prm.RxAZlim = prm.BsAZlim;
     prm.RxELlim = [-90 0];
@@ -72,7 +73,7 @@ rng(42);
 
 % % % % % % % Target Construction
     prm.L = 2;
-    prm.rMin = 40; prm.rMax = 100;
+    prm.rMin = 40; prm.rMax = 200;
 
     [H_tens, RangeAzProfile, ScatPosPol] = genGridChannel(prm);
     
@@ -88,7 +89,7 @@ rng(42);
     x = squeeze(txGrid(:, :, 1)).'; % Space x Time N x Nofdm * N_T
     y = squeeze(Y_tens(:, :, 1)).';
 %     x = squeeze(mean(txGrid, 3)).';
-%     y = squeeze(mean(Y_tens, 3));
+%     y = squeeze(mean(Y_tens, 3)).';
     y_vec = reshape(y, [numel(y), 1]);
 
     Phi = kron(x.', W); % this is full rank necessarily
@@ -110,20 +111,19 @@ rng(42);
     xlabel('\theta');
     ylabel('Magnitude');
     title('Azimuth Profile')
+    legend({'True', 'Estimate'})  
+
+    % Compensate for estimated az proflie
+    SV_est = sum( (mags.' .* H_RX(:, I)) , 2); % steering vector towards the determined az bins weighted by estimates
+    SV_est = SV_est ./ norm(SV_est); % power norm
     
-    SV_est = sum(H_RX(:, I), 2); % steering vector towards the determined az bins
-%     legend({'True', 'Estimate'})  
-    
-    Y_tens_az_comp = zeros(size(Y_tens));
-    for n = 1:prm.NumRxElements
-        Y_tens_az_comp(:, n, :) = Y_tens(:, n, :) .* exp(1j * 2 * pi * SV_est(n));
-    end
+    Y_tens_az_comp = tensorprod(Y_tens, SV_est.', 2);
     subplot(1, 2, 2); hold on;
-    stem(prm.RangeBins, abs(sum(RangeAzProfile, 2)));
+%     stem(prm.RangeBins, abs(sum(RangeAzProfile, 2)));
 %     range_estimate = abs(ifft( ...
 %     squeeze(mean(Y_tens_az_comp, [1 2])) ./ squeeze(mean(txGrid, [1 2])) ...
 %     ));
-    range_estimate = abs(ifft(squeeze(mean(Y_tens(:, 5, :) ./ txGrid(:, 5, :), 1))));
+    range_estimate = abs(ifft(squeeze(mean(Y_tens(:, 5, :) ./ txGrid(:, 2, :), 1))));
 
     plot(prm.RangeBins, range_estimate);
 
@@ -155,9 +155,12 @@ function [H_tens, RangeAzProfile, ScatPosPol] = genGridChannel(prm)
     % H _tens output as N x M x K
     % RangeAzProfile as N_R x N_theta
     % ScatPosPol as 3 x L
+    minRangeBin = find(prm.RangeBins < prm.rMin, 1, 'last') + 1;
     maxRangeBin = find(prm.RangeBins > prm.rMax, 1, 'first');
+%     rangeInd = randperm(maxRangeBin, prm.L);
+    rangeInd = randi([minRangeBin, maxRangeBin], [1, prm.L]);
+
     azInd = randperm(prm.N_theta, prm.L);
-    rangeInd = randperm(maxRangeBin, prm.L);
     
     azValues = prm.AzBins(azInd);
 %     azValues = zeros(1, prm.L); % Fix az to 0 to test ranging
@@ -168,24 +171,23 @@ function [H_tens, RangeAzProfile, ScatPosPol] = genGridChannel(prm)
 
     RangeAzProfile = zeros(prm.N_R, prm.N_theta);
     H_tens = zeros(prm.NumRxElements, prm.NumBsElements, prm.K);
-    for l = 1:prm.L
-        tau_r = 2*rangeValues(l) / prm.PropagationSpeed;
-        tau_m = prm.DeltaTX * (0:prm.NumBsElements-1)*sind(azValues(l)); %Check this
-        tau_n = prm.DeltaRX * (0:prm.NumRxElements-1)*sind(azValues(l));
-        tau_n_m = zeros(prm.NumRxElements, prm.NumBsElements);
-
-        for n = 1:prm.NumRxElements
-            for m = 1:prm.NumBsElements
-                tau_n_m(n,m) = tau_n(n) + tau_m(m);
-            end
-        end
-
-%         tau_total = tau_r + tau_n_m;
-        PL = (4*pi*rangeValues(l)/prm.lam)^-2;
-        RangeAzProfile(rangeInd(l), azInd(l)) = PL*ScatCoeff(l);
-        for k = 1:prm.K
-            H_tens(:, :, k) = H_tens(:, :, k) + PL*ScatCoeff(l)*exp(-1j * 2*pi * (prm.CenterFreq + k*prm.Delta_f*1e3*tau_r + tau_n_m)); % Is the az-induced delay scaled by freq? - NO
-%             H_tens(:, :, k) = H_tens(:, :, k) + PL*ScatCoeff(l)*exp(-1j * 2*pi * (k*prm.Delta_f*1e3*tau_r + tau_n_m));
+    for k = 1:prm.K
+        for l = 1:prm.L
+                tau_r = 2*rangeValues(l) / prm.PropagationSpeed;
+                tau_m = prm.DeltaTX * (0:prm.NumBsElements-1)*sind(azValues(l)); %Check this
+                tau_n = prm.DeltaRX * (0:prm.NumRxElements-1)*sind(azValues(l));
+                tau_n_m = zeros(prm.NumRxElements, prm.NumBsElements);
+        
+                for n = 1:prm.NumRxElements
+                    for m = 1:prm.NumBsElements
+                        tau_n_m(n,m) = tau_n(n) + tau_m(m);
+                    end
+                end
+        
+        %         tau_total = tau_r + tau_n_m;
+                PL = (4*pi*rangeValues(l)/prm.lam)^-2;
+                RangeAzProfile(rangeInd(l), azInd(l)) = PL*ScatCoeff(l);
+                H_tens(:, :, k) = H_tens(:, :, k) + PL*ScatCoeff(l)*exp(-1j * 2*pi * ( (k*prm.Delta_f*1e3*tau_r) + tau_n_m) ); % Is the az-induced delay scaled by freq? - NO
         end
     end
     H_tens = H_tens ./ prm.NumBsElements; %Power norm
