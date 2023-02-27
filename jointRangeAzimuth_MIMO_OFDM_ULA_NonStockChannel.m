@@ -71,7 +71,7 @@ rng(42);
 % % % END Transmit Signal Construction
 
 % % % % % % % Target Construction
-    prm.L = 1;
+    prm.L = 2;
     prm.rMin = 40; prm.rMax = 100;
 
     [H_tens, RangeAzProfile, ScatPosPol] = genGridChannel(prm);
@@ -120,9 +120,11 @@ rng(42);
     end
     subplot(1, 2, 2); hold on;
     stem(prm.RangeBins, abs(sum(RangeAzProfile, 2)));
-    range_estimate = abs(ifft( ...
-    squeeze(mean(Y_tens_az_comp, [1 2])) ./ squeeze(mean(txGrid, [1 2])) ...
-    ));
+%     range_estimate = abs(ifft( ...
+%     squeeze(mean(Y_tens_az_comp, [1 2])) ./ squeeze(mean(txGrid, [1 2])) ...
+%     ));
+    range_estimate = abs(ifft(squeeze(mean(Y_tens(:, 5, :) ./ txGrid(:, 5, :), 1))));
+
     plot(prm.RangeBins, range_estimate);
 
 function [txGrid] = genFreqTxGrid(M, U, MCS, N_T, Nofdm, K, txCodebook)
@@ -162,7 +164,7 @@ function [H_tens, RangeAzProfile, ScatPosPol] = genGridChannel(prm)
     rangeValues = prm.RangeBins(rangeInd);
 %     rangeValues = ones(1, prm.L); % Fix range to 0 to test spatial compression
     ScatPosPol = [rangeValues; azValues; zeros(1, prm.L)];
-    ScatCoeff = ones(1, 3) .* complex(1, 1) ./ sqrt(2); %Unit reflectors
+    ScatCoeff = ones(1, prm.L) .* complex(1, 1) ./ sqrt(2); %Unit reflectors
 
     RangeAzProfile = zeros(prm.N_R, prm.N_theta);
     H_tens = zeros(prm.NumRxElements, prm.NumBsElements, prm.K);
@@ -182,7 +184,8 @@ function [H_tens, RangeAzProfile, ScatPosPol] = genGridChannel(prm)
         PL = (4*pi*rangeValues(l)/prm.lam)^-2;
         RangeAzProfile(rangeInd(l), azInd(l)) = PL*ScatCoeff(l);
         for k = 1:prm.K
-            H_tens(:, :, k) = H_tens(:, :, k) + PL*ScatCoeff(l)*exp(-1j * 2*pi * (k*prm.Delta_f*1e3*tau_r + tau_n_m)); % Is the az-induced delay scaled by freq?
+            H_tens(:, :, k) = H_tens(:, :, k) + PL*ScatCoeff(l)*exp(-1j * 2*pi * (prm.CenterFreq + k*prm.Delta_f*1e3*tau_r + tau_n_m)); % Is the az-induced delay scaled by freq? - NO
+%             H_tens(:, :, k) = H_tens(:, :, k) + PL*ScatCoeff(l)*exp(-1j * 2*pi * (k*prm.Delta_f*1e3*tau_r + tau_n_m));
         end
     end
     H_tens = H_tens ./ prm.NumBsElements; %Power norm
