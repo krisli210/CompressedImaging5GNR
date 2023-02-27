@@ -1,7 +1,7 @@
 close all
 clear 
 
-rng(42);
+rng(442);
 
 
 % % % OFDM Signal Params
@@ -38,7 +38,7 @@ rng(42);
     
     RxArray = phased.ULA(prm.NumRxElements, prm.DeltaRX*prm.lam, 'Element', phased.IsotropicAntennaElement,'ArrayAxis', 'y');
     
-    prm.N_theta = 64; %number of grid spots, i.e. dimension of the quantized azimuth profile
+    prm.N_theta = prm.BsArraySize * prm.RxArraySize; %number of grid spots, i.e. dimension of the quantized azimuth profile
     thetaMin = prm.BsAZlim(1); thetaMax = prm.BsAZlim(2); %in Azimuth
     prm.AzBins = thetaMin:(thetaMax-thetaMin)/(prm.N_theta-1):thetaMax;
     
@@ -62,7 +62,7 @@ rng(42);
 % % % Transmit Signal Construction
 
     prm.NumUsers = 3;
-    prm.N_T = 9; % number of time slots
+    prm.N_T = 6; % number of time slots
     prm.Nofdm = 14; %number of OFDM symbols per slot
     prm.MCS = 16; %modulation order
     
@@ -80,38 +80,42 @@ rng(42);
 % % % % % % % END Target Construction
 
 % % % Receive Processing
+
+    % Az Cutting
     Y_tens = zeros(prm.Nofdm * prm.N_T, prm.NumRxElements, prm.K);
     for k = 1:prm.K
         Y_tens(:, :, k) = (H_tens(:, :, k) * txGrid(:, :, k).').';
     end
     
     W = eye(prm.NumRxElements);
-    x = squeeze(txGrid(:, :, 1)).'; % Space x Time N x Nofdm * N_T
-    y = squeeze(Y_tens(:, :, 1)).';
-%     x = squeeze(mean(txGrid, 3)).';
-%     y = squeeze(mean(Y_tens, 3)).';
-    y_vec = reshape(y, [numel(y), 1]);
+    % Currently just grab the first subcarrier although this is working for
+    % all k for some reason - although average does not work
+    x_AZ = squeeze(txGrid(:, :, 1)).'; % Space x Time - N x Nofdm * N_T
+    y_AZ = squeeze(Y_tens(:, :, 1)).';
+    
+%     x_AZ = squeeze( mean ( txGrid, 3)).'; % Broken for some reason
+%     y_AZ = squeeze( mean ( Y_tens, 3)).';
 
-    Phi = kron(x.', W); % this is full rank necessarily
-    Psi = kr(H_TX, H_RX); % 
-    A = Phi * Psi;
+    y_vec_AZ = reshape(y_AZ, [numel(y_AZ), 1]);
+
+    Phi_AZ = kron(x_AZ.', W); % this is full rank necessarily
+    Psi_AZ = kr(H_TX, H_RX); % 
     
-    sensingDict = sensingDictionary('CustomDictionary', A);
-    [z_hat, YI, I, R] = matchingPursuit(sensingDict, y_vec, maxIterations=10, Algorithm="OMP", maxerr={"L1", 1e-4});
+    [z_hat_AZ, I] = solveCS_OMP(y_vec_AZ, Phi_AZ, Psi_AZ);
+    mags = z_hat_AZ(I);
+
+    % Range Cutting
     
-    A_sub = Phi * Psi(:, I); % Solve magnitude posthence via direct linsolve against estimated support
-    mags = linsolve(A_sub, y_vec);
-    z_hat(I) = mags;
 % % %
     
     figure; 
     subplot(1, 2, 1); hold on; 
     stem(-60:120/(prm.N_theta-1):60, abs(sum(RangeAzProfile, 1)));
-    stem(-60:120/(prm.N_theta-1):60, abs(z_hat), '--x');
+    stem(-60:120/(prm.N_theta-1):60, abs(z_hat_AZ), '--x');
     xlabel('\theta');
     ylabel('Magnitude');
     title('Azimuth Profile')
-    legend({'True', 'Estimate'})  
+    legend({'True', 'Estimate'}, 'Location', 'south')  
 
     % Compensate for estimated az proflie
     SV_est = sum( (mags.' .* H_RX(:, I)) , 2); % steering vector towards the determined az bins weighted by estimates
@@ -119,14 +123,15 @@ rng(42);
     
     Y_tens_az_comp = tensorprod(Y_tens, SV_est.', 2);
     subplot(1, 2, 2); hold on;
-%     stem(prm.RangeBins, abs(sum(RangeAzProfile, 2)));
-%     range_estimate = abs(ifft( ...
-%     squeeze(mean(Y_tens_az_comp, [1 2])) ./ squeeze(mean(txGrid, [1 2])) ...
-%     ));
-    range_estimate = abs(ifft(squeeze(mean(Y_tens(:, 5, :) ./ txGrid(:, 2, :), 1))));
+    stem(prm.RangeBins, abs(sum(RangeAzProfile, 2)));
+    
+    tx_rand = randi(prm.BsArraySize);
+    rx_rand = randi(prm.RxArraySize);
+    range_hat = abs(ifft(squeeze(mean(Y_tens(:, rx_rand, :) ./ txGrid(:, tx_rand, :), 1))));
 
-    plot(prm.RangeBins, range_estimate);
+    plot(prm.RangeBins, range_hat);
 
+% % % 
 function [txGrid] = genFreqTxGrid(M, U, MCS, N_T, Nofdm, K, txCodebook)
     %Generates baseband equivalent frequency-domain signaling
     % txGrid output is (Nofdm * N_T) x M x K
@@ -184,7 +189,6 @@ function [H_tens, RangeAzProfile, ScatPosPol] = genGridChannel(prm)
                     end
                 end
         
-        %         tau_total = tau_r + tau_n_m;
                 PL = (4*pi*rangeValues(l)/prm.lam)^-2;
                 RangeAzProfile(rangeInd(l), azInd(l)) = PL*ScatCoeff(l);
                 H_tens(:, :, k) = H_tens(:, :, k) + PL*ScatCoeff(l)*exp(-1j * 2*pi * ( (k*prm.Delta_f*1e3*tau_r) + tau_n_m) ); % Is the az-induced delay scaled by freq? - NO
