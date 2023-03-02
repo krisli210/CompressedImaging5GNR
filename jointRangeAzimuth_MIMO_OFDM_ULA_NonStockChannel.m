@@ -10,7 +10,7 @@ rng(43);
     prm.PropagationSpeed = physconst('LightSpeed');
     prm.lam = prm.PropagationSpeed/prm.CenterFreq;
 
-    prm.Delta_f = 120; % SCS in KHz
+    prm.Delta_f = 120*1e3; % SCS in KHz
     
     prm.K = 512;
     
@@ -44,7 +44,7 @@ rng(43);
     prm.AzBins = thetaMin:(thetaMax-thetaMin)/(prm.N_theta-1):thetaMax;
     
     M = 1; %ifft oversampling factor
-    prm.delta_R = prm.PropagationSpeed./(2*prm.Delta_f*1e3*prm.K); % nominal range resolution
+    prm.delta_R = prm.PropagationSpeed./(2*prm.Delta_f*prm.K); % nominal range resolution
     prm.N_R = prm.K;
     prm.RangeBins = 0:prm.delta_R:(prm.N_R-1)*prm.delta_R;
     maxRange = prm.RangeBins(end);
@@ -62,7 +62,7 @@ rng(43);
 
 % % % Transmit Signal Construction
 
-    prm.NumUsers = 3;
+    prm.NumUsers = 4;
     prm.N_T = 6; % number of time slots
     prm.Nofdm = 14; %number of OFDM symbols per slot
     prm.MCS = 16; %modulation order
@@ -73,7 +73,7 @@ rng(43);
 % % % END Transmit Signal Construction
 
 % % % % % % % Target Construction
-    prm.L = 4;
+    prm.L = 1;
     prm.rMin = 40; prm.rMax = 200;
 
     [H_tens, RangeAzProfile, ScatPosPol] = genGridChannel(prm);
@@ -94,20 +94,41 @@ rng(43);
     x_AZ = squeeze(txGrid(:, :, 1)); % Space x Time - N x Nofdm * N_T
     y_AZ = squeeze(Y_tens(:, :, 1));
     
-%     x_AZ = squeeze( mean ( txGrid, 3)).'; % Broken for some reason
-%     y_AZ = squeeze( mean ( Y_tens, 3)).';
+%     x_AZ = squeeze( mean ( txGrid(:, :, 1), 2)); % Broken for some reason
+%     y_AZ = squeeze( mean ( Y_tens(:, :, 1), 2));
     
     y_vec_AZ = reshape(y_AZ, [numel(y_AZ), 1]);
 
-    Phi_AZ = kron(x_AZ.', W); % this is full rank necessarily
+    Phi_AZ = kron(x_AZ.', W); % N*Nofdm*N_T x MN
     Psi_AZ = kr(H_TX, H_RX); % 
     
-    [z_hat_AZ, I] = solveCS_OMP(y_vec_AZ, Phi_AZ, Psi_AZ);
-    mags = z_hat_AZ(I);
+    [z_hat_AZ, I_AZ] = solveCS_OMP(y_vec_AZ, Phi_AZ, Psi_AZ);
 
     % Range Cutting
     
 % % %
+
+    % Choose random antenna elements for now to test IFFT basis
+    tx_rand = randi(prm.BsArraySize);
+    rx_rand = randi(prm.RxArraySize);
+    
+%     x_R = squeeze(txGrid(tx_rand, 1, :)).'; % Freq x Time
+%     y_R = squeeze(Y_tens(rx_rand, 1, :)).'; % 
+% 
+%     y_vec_R = reshape(y_R, [numel(y_R), 1]);
+% 
+%     
+    % Construct ranging dic
+    Psi_r = zeros(prm.K, prm.N_R);
+    for r = 1:length(prm.RangeBins)
+        tau_r = 2 * prm.RangeBins(r) / prm.PropagationSpeed;
+        Psi_r(:, r) = exp(-1j * 2*pi .* [0:prm.K-1]*prm.Delta_f * tau_r);
+    end
+    
+%     
+%     [z_hat_R, I_R] = solveCS_OMP(y_vec_R, Phi_R, Psi_R);
+    
+    z_hat_R = abs(ifft(squeeze(mean(Y_tens(rx_rand, :, :) ./ txGrid(tx_rand, :, :), 2)))); % Choose random antenna pairing, average over all OFDM symbols - this has higher interference compared to BF 
     
     figure; 
     subplot(1, 2, 1); hold on; 
@@ -117,38 +138,11 @@ rng(43);
     ylabel('Magnitude');
     title('Azimuth Profile')
     legend({'True', 'Estimate'}, 'Location', 'south')  
-
-    % Compensate for estimated az proflie
-%     SV_est_TX = sum( (mags.' .* H_TX(:, I)) , 2);
-%     SV_est_TX = sum(H_TX(:, I), 2);
-%     SV_est_TX = SV_est_TX ./ norm(SV_est_TX);
-% 
-% %     SV_est_RX = sum( (mags.' .* H_RX(:, I)) , 2); % steering vector towards the determined az bins weighted by estimates
-%     SV_est_RX = sum(H_RX(:, I), 2);
-%     SV_est_RX = SV_est_RX ./ norm(SV_est_RX); % power norm
-%     
-%     Y_tens_az_comp = tensorprod(Y_tens, SV_est_RX.', 2); %  ? ? ? ? ?
-%     txGrid_az_comp = tensorprod(txGrid, SV_est_TX.', 2);
-%     
-    tx_rand = randi(prm.BsArraySize);
-    rx_rand = randi(prm.RxArraySize);
-    
-    x_R = squeeze(txGrid(tx_rand, :, :));
-    y_R = squeeze(Y_tens(rx_rand, :, :));
-
-    y_vec_R = reshape(y_R, [numel(y_R), 1]);
-
-    Phi_R = kron(x_R.', W);
-%     Psi_R = 
-    range_hat = abs(ifft(squeeze(mean(Y_tens(rx_rand, :, :) ./ txGrid(tx_rand, :, :), 2)))); % Choose random antenna pairing, average over all OFDM symbols - this has higher interference compared to BF 
-%     range_hat = abs(ifft(mean(Y_tens_az_comp ./ txGrid_az_comp, 1))); % Beamform towards estimated az profile - maybe not a fair comparison?
-    
-%     range_hat = abs(ifft(squeeze( mean(Y_tens, [1 2]) ./ mean(txGrid, [1 2])))); % BROKEN - does not work probably due to angle delays present
     
     subplot(1, 2, 2); hold on;
     stem(prm.RangeBins, abs(sum(RangeAzProfile, 2)));
-    plot(prm.RangeBins, range_hat);
-
+    plot(prm.RangeBins, abs(z_hat_R));
+    
 % % % 
 function [txGrid] = genFreqTxGrid(M, U, MCS, N_T, Nofdm, K, txCodebook)
     %Generates baseband equivalent frequency-domain signaling
@@ -210,7 +204,7 @@ function [H_tens, RangeAzProfile, ScatPosPol] = genGridChannel(prm)
         
                 PL = (4*pi*rangeValues(l)/prm.lam)^-2;
                 RangeAzProfile(rangeInd(l), azInd(l)) = PL*ScatCoeff(l);
-                H_tens(:, :, k+1) = H_tens(:, :, k+1) + PL*ScatCoeff(l)*exp(-1j * 2*pi * ( (k*prm.Delta_f*1e3*tau_r) + tau_n_m) ); % Is the az-induced delay scaled by freq? - NO
+                H_tens(:, :, k+1) = H_tens(:, :, k+1) + PL*ScatCoeff(l)*exp(-1j * 2*pi * ( (k*prm.Delta_f*tau_r) + tau_n_m) ); % Is the az-induced delay scaled by freq? - NO
         end
     end
     H_tens = H_tens ./ prm.NumBsElements; %Power norm
