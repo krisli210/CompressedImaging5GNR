@@ -1,7 +1,7 @@
 close all
 clear 
 
-rng(43);
+rng(44);
 
 
 % % % OFDM Signal Params
@@ -45,7 +45,7 @@ rng(43);
     
     M = 1; %ifft oversampling factor
     prm.delta_R = prm.PropagationSpeed./(2*prm.Delta_f*prm.K); % nominal range resolution
-    prm.N_R = prm.K;
+    prm.N_R = 128;
     prm.RangeBins = 0:prm.delta_R:(prm.N_R-1)*prm.delta_R;
     maxRange = prm.RangeBins(end);
 
@@ -63,7 +63,7 @@ rng(43);
 % % % Transmit Signal Construction
 
     prm.NumUsers = 4;
-    prm.N_T = 6; % number of time slots
+    prm.N_T = 30; % number of time slots
     prm.Nofdm = 14; %number of OFDM symbols per slot
     prm.MCS = 16; %modulation order
     
@@ -73,8 +73,8 @@ rng(43);
 % % % END Transmit Signal Construction
 
 % % % % % % % Target Construction
-    prm.L = 1;
-    prm.rMin = 40; prm.rMax = 200;
+    prm.L = 3;
+    prm.rMin = 40; prm.rMax = 100;
 
     [H_tens, RangeAzProfile, ScatPosPol] = genGridChannel(prm);
     
@@ -112,23 +112,27 @@ rng(43);
     tx_rand = randi(prm.BsArraySize);
     rx_rand = randi(prm.RxArraySize);
     
-%     x_R = squeeze(txGrid(tx_rand, 1, :)).'; % Freq x Time
-%     y_R = squeeze(Y_tens(rx_rand, 1, :)).'; % 
-% 
-%     y_vec_R = reshape(y_R, [numel(y_R), 1]);
-% 
-%     
+    x_R = squeeze(txGrid(tx_rand, :, :)).'; % Freq x Time
+    y_R = squeeze(Y_tens(rx_rand, :, :)).'; % 
+    
+    y_R_vec = reshape(y_R.', [numel(y_R), 1]);
+%     y_R = steerTensor(Y_tens, H_RX, I_AZ, z_hat_AZ(I_AZ)).';
+%     x_R = steerTensor(txGrid, H_TX, I_AZ, z_hat_AZ(I_AZ)).';
+    
+    H_hat = mean(y_R ./ x_R, 2); % Average freq response over OFDM symbols
+    
     % Construct ranging dic
-    Psi_r = zeros(prm.K, prm.N_R);
+    Psi_R = zeros(prm.K, prm.N_R);
     for r = 1:length(prm.RangeBins)
         tau_r = 2 * prm.RangeBins(r) / prm.PropagationSpeed;
-        Psi_r(:, r) = exp(-1j * 2*pi .* [0:prm.K-1]*prm.Delta_f * tau_r);
+        Psi_R(:, r) = exp(-1j * 2*pi .* [0:prm.K-1]*prm.Delta_f * tau_r); % This is just the ifft of an identity
+        Psi_R(:, r) = Psi_R(:, r) ./ norm(Psi_R(:, r));
     end
-    
-%     
-%     [z_hat_R, I_R] = solveCS_OMP(y_vec_R, Phi_R, Psi_R);
-    
-    z_hat_R = abs(ifft(squeeze(mean(Y_tens(rx_rand, :, :) ./ txGrid(tx_rand, :, :), 2)))); % Choose random antenna pairing, average over all OFDM symbols - this has higher interference compared to BF 
+    Phi_R = eye(size(Psi_R, 1));
+    Phi_R = kron(x_R.', ones(prm.K, 1)); 
+    [z_hat_R, I_R] = solveCS_OMP(y_R_vec, Phi_R, Psi_R);
+%     z_hat_R = linsolve(Psi_R, H_hat);
+%     z_hat_R = ifft(squeeze(mean(Y_tens(rx_rand, :, :) ./ txGrid(tx_rand, :, :), 2))); % Choose random antenna pairing, average over all OFDM symbols - this has higher interference compared to BF 
     
     figure; 
     subplot(1, 2, 1); hold on; 
@@ -141,7 +145,7 @@ rng(43);
     
     subplot(1, 2, 2); hold on;
     stem(prm.RangeBins, abs(sum(RangeAzProfile, 2)));
-    plot(prm.RangeBins, abs(z_hat_R));
+    stem(prm.RangeBins, abs(z_hat_R));
     
 % % % 
 function [txGrid] = genFreqTxGrid(M, U, MCS, N_T, Nofdm, K, txCodebook)
@@ -159,7 +163,7 @@ function [txGrid] = genFreqTxGrid(M, U, MCS, N_T, Nofdm, K, txCodebook)
     for k = 1:K % FIXME: actually beamforming per RB 
         for n_T = 1:N_T
             txAngles = randperm(size(txCodebook, 2), U);
-            F = 1./sqrt(U) * txCodebook(:, txAngles); % M x U
+            F = 1./sqrt(U) * txCodebook(:, txAngles); % M x U - Change per frame (14 OFDM symbols) and per subcarrier (although should be per 12 subcarriers)
             for nofdm = 1:Nofdm
                 startTimeIndex = (Nofdm * (n_T - 1));
                 s_slice = squeeze(s(:, startTimeIndex + nofdm, k)); % U x 1
