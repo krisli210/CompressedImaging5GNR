@@ -107,13 +107,16 @@ rng(42);
     Psi_AZ = kr(H_TX, H_RX); % 
     Psi_AZ = Psi_AZ ./ norm(Psi_AZ);
     
+    [z_hat_AZ, I_AZ] = solveCS_OMP(y_vec_AZ, Phi_AZ, Psi_AZ);
+
     % Construct ranging dic
     Psi_R = zeros(prm.K, prm.N_R);
     for r = 1:length(prm.RangeBins)
         tau_r = 2 * prm.RangeBins(r) / prm.PropagationSpeed;
         Psi_R(:, r) = exp(-1j * 2*pi .* [0:prm.K-1]*prm.Delta_f * tau_r); % This is just the ifft of an identity
-        Psi_R(:, r) = Psi_R(:, r) ./ norm(Psi_R(:, r));
+%         Psi_R(:, r) = Psi_R(:, r) ./ norm(Psi_R(:, r));
     end
+    Psi_R = Psi_R ./ norm(Psi_R);
     Phi_R = eye(size(Psi_R, 1));
 
     % Range Cutting
@@ -133,9 +136,7 @@ rng(42);
     
     H_hat = mean(y_R ./ x_R, 2); % Average freq response over OFDM symbols
     
-    [z_hat_AZ, I_AZ] = solveCS_OMP(y_vec_AZ, Phi_AZ, Psi_AZ);
     [z_hat_R, I_R] = solveCS_OMP(H_hat, Phi_R, Psi_R);
-%     z_hat_R = linsolve(Psi_R, H_hat);
 %     z_hat_R = ifft(squeeze(mean(Y_tens(rx_rand, :, :) ./ txGrid(tx_rand, :, :), 2))); % Choose random antenna pairing, average over all OFDM symbols - this has higher interference compared to BF 
     
     figure; 
@@ -184,18 +185,12 @@ function [H_tens, RangeAzProfile, ScatPosPol] = genGridChannel(prm)
     % H _tens output as N x M x K
     % RangeAzProfile as N_R x N_theta
     % ScatPosPol as 3 x L
-    minRangeBin = find(prm.RangeBins <= prm.rMin, 1, 'last') + 1;
-    maxRangeBin = find(prm.RangeBins >= prm.rMax, 1, 'first');
-%     rangeInd = randperm(maxRangeBin, prm.L);
-    rangeInd = randi([minRangeBin, maxRangeBin], [1, prm.L]);
 
     azInd = randperm(prm.N_theta, prm.L);
     rangeInd = randperm(prm.N_R, prm.L);
 
     azValues = prm.AzBins(azInd);
-%     azValues = zeros(1, prm.L); % Fix az to 0 to test ranging
     rangeValues = prm.RangeBins(rangeInd);
-%     rangeValues = ones(1, prm.L); % Fix range to 0 to test spatial compression
     ScatPosPol = [rangeValues; azValues; zeros(1, prm.L)];
     ScatCoeff = ones(1, prm.L) .* complex(1, 1) ./ sqrt(2); %Unit reflectors
 
