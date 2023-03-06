@@ -1,7 +1,7 @@
 close all
 clear 
 
-rng(44);
+rng(42);
 
 
 % % % OFDM Signal Params
@@ -38,18 +38,31 @@ rng(44);
     
     RxArray = phased.ULA(prm.NumRxElements, prm.DeltaRX*prm.lam, 'Element', phased.IsotropicAntennaElement,'ArrayAxis', 'y');
     
+    % % % % % % % Target Construction
 %     prm.N_theta = prm.BsArraySize * prm.RxArraySize; %number of grid spots, i.e. dimension of the quantized azimuth profile
     prm.N_theta = 128;
     thetaMin = prm.BsAZlim(1); thetaMax = prm.BsAZlim(2); %in Azimuth
     prm.AzBins = thetaMin:(thetaMax-thetaMin)/(prm.N_theta-1):thetaMax;
     
-    M = 1; %ifft oversampling factor
-    prm.delta_R = prm.PropagationSpeed./(2*prm.Delta_f*prm.K); % nominal range resolution
-    prm.N_R = 128;
-    prm.RangeBins = 0:prm.delta_R:(prm.N_R-1)*prm.delta_R;
-    maxRange = prm.RangeBins(end);
+    % % % % % % % Grid/Target Construction
+    prm.L = 3;
+    prm.rMin = 20; prm.rMax = 150;
 
-    % Dictionary Construction
+    limit_rangeRes = true;
+    if (limit_rangeRes)
+        prm.delta_R = prm.PropagationSpeed./(2*prm.Delta_f*prm.K); % nominal range resolution
+    else
+        % Block for changing rangeRes to a non-nominal value
+        prm.delta_R = 1;
+        
+    end
+    prm.RangeBins = prm.rMin : prm.delta_R : prm.rMax;
+    prm.N_R = numel(prm.RangeBins);
+
+    [H_tens, RangeAzProfile, ScatPosPol] = genGridChannel(prm);
+    % % % % % % % END Grid/Target Construction
+
+    % Spatial Dictionary Construction
     H_TX = zeros(prm.NumBsElements, prm.N_theta);
     H_RX = zeros(prm.NumRxElements, prm.N_theta);
     for n = 1:prm.N_theta
@@ -58,7 +71,6 @@ rng(44);
 %         H_TX(:, n) = collectPlaneWave(BsArray, 1, [prm.AzBins(n), 0].', prm.CenterFreq);
 %         H_RX(:, n) = collectPlaneWave(RxArray, 1, [prm.AzBins(n), 0].', prm.CenterFreq);
     end
-% % % % % END Array Info
 
 % % % Transmit Signal Construction
 
@@ -71,14 +83,6 @@ rng(44);
     txGrid = genFreqTxGrid(prm.NumBsElements, prm.NumUsers, prm.MCS, prm.N_T, prm.Nofdm, prm.K, H_TX); % (Nofdm * N_T) x M x K
     
 % % % END Transmit Signal Construction
-
-% % % % % % % Target Construction
-    prm.L = 3;
-    prm.rMin = 40; prm.rMax = 100;
-
-    [H_tens, RangeAzProfile, ScatPosPol] = genGridChannel(prm);
-    
-% % % % % % % END Target Construction
 
     Y_tens = zeros(prm.NumRxElements, prm.Nofdm * prm.N_T, prm.K);
     for k = 1:prm.K
@@ -101,8 +105,16 @@ rng(44);
 
     Phi_AZ = kron(x_AZ.', W); % N*Nofdm*N_T x MN
     Psi_AZ = kr(H_TX, H_RX); % 
+    Psi_AZ = Psi_AZ ./ norm(Psi_AZ);
     
-    [z_hat_AZ, I_AZ] = solveCS_OMP(y_vec_AZ, Phi_AZ, Psi_AZ);
+    % Construct ranging dic
+    Psi_R = zeros(prm.K, prm.N_R);
+    for r = 1:length(prm.RangeBins)
+        tau_r = 2 * prm.RangeBins(r) / prm.PropagationSpeed;
+        Psi_R(:, r) = exp(-1j * 2*pi .* [0:prm.K-1]*prm.Delta_f * tau_r); % This is just the ifft of an identity
+        Psi_R(:, r) = Psi_R(:, r) ./ norm(Psi_R(:, r));
+    end
+    Phi_R = eye(size(Psi_R, 1));
 
     % Range Cutting
     
@@ -121,16 +133,8 @@ rng(44);
     
     H_hat = mean(y_R ./ x_R, 2); % Average freq response over OFDM symbols
     
-    % Construct ranging dic
-    Psi_R = zeros(prm.K, prm.N_R);
-    for r = 1:length(prm.RangeBins)
-        tau_r = 2 * prm.RangeBins(r) / prm.PropagationSpeed;
-        Psi_R(:, r) = exp(-1j * 2*pi .* [0:prm.K-1]*prm.Delta_f * tau_r); % This is just the ifft of an identity
-        Psi_R(:, r) = Psi_R(:, r) ./ norm(Psi_R(:, r));
-    end
-    Phi_R = eye(size(Psi_R, 1));
-    Phi_R = kron(x_R.', ones(prm.K, 1)); 
-    [z_hat_R, I_R] = solveCS_OMP(y_R_vec, Phi_R, Psi_R);
+    [z_hat_AZ, I_AZ] = solveCS_OMP(y_vec_AZ, Phi_AZ, Psi_AZ);
+    [z_hat_R, I_R] = solveCS_OMP(H_hat, Phi_R, Psi_R);
 %     z_hat_R = linsolve(Psi_R, H_hat);
 %     z_hat_R = ifft(squeeze(mean(Y_tens(rx_rand, :, :) ./ txGrid(tx_rand, :, :), 2))); % Choose random antenna pairing, average over all OFDM symbols - this has higher interference compared to BF 
     
@@ -145,8 +149,11 @@ rng(44);
     
     subplot(1, 2, 2); hold on;
     stem(prm.RangeBins, abs(sum(RangeAzProfile, 2)));
-    stem(prm.RangeBins, abs(z_hat_R));
-    
+    stem(prm.RangeBins, abs(z_hat_R), '--x');
+    xlabel('Range [m]');
+    ylabel('Magnitude');
+    title('Range Profile')
+    legend({'True', 'Estimate'}, 'Location', 'south') 
 % % % 
 function [txGrid] = genFreqTxGrid(M, U, MCS, N_T, Nofdm, K, txCodebook)
     %Generates baseband equivalent frequency-domain signaling
@@ -177,13 +184,14 @@ function [H_tens, RangeAzProfile, ScatPosPol] = genGridChannel(prm)
     % H _tens output as N x M x K
     % RangeAzProfile as N_R x N_theta
     % ScatPosPol as 3 x L
-    minRangeBin = find(prm.RangeBins < prm.rMin, 1, 'last') + 1;
-    maxRangeBin = find(prm.RangeBins > prm.rMax, 1, 'first');
+    minRangeBin = find(prm.RangeBins <= prm.rMin, 1, 'last') + 1;
+    maxRangeBin = find(prm.RangeBins >= prm.rMax, 1, 'first');
 %     rangeInd = randperm(maxRangeBin, prm.L);
     rangeInd = randi([minRangeBin, maxRangeBin], [1, prm.L]);
 
     azInd = randperm(prm.N_theta, prm.L);
-    
+    rangeInd = randperm(prm.N_R, prm.L);
+
     azValues = prm.AzBins(azInd);
 %     azValues = zeros(1, prm.L); % Fix az to 0 to test ranging
     rangeValues = prm.RangeBins(rangeInd);
