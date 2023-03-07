@@ -53,13 +53,13 @@ rng(42);
         prm.delta_R = prm.PropagationSpeed./(2*prm.Delta_f*prm.K); % nominal range resolution
     else
         % Block for changing rangeRes to a non-nominal value
-        prm.delta_R = 1;
+        prm.delta_R = 1.5;
         
     end
     prm.RangeBins = prm.rMin : prm.delta_R : prm.rMax;
     prm.N_R = numel(prm.RangeBins);
 
-    [H_tens, RangeAzProfile, ScatPosPol] = genGridChannel(prm);
+    [H_tens, RangeAzProfile, ScatPosPol, azInd] = genGridChannel(prm);
     % % % % % % % END Grid/Target Construction
 
     % Spatial Dictionary Construction
@@ -80,13 +80,17 @@ rng(42);
     prm.MCS = 16; %modulation order
     
     %Generates baseband frequency-domain signal across freq-time-space
-    txGrid = genFreqTxGrid(prm.NumBsElements, prm.NumUsers, prm.MCS, prm.N_T, prm.Nofdm, prm.K, H_TX); % (Nofdm * N_T) x M x K
+    %Both a randomly precoded and ideally precoded/data structure 
+    [txGrid, txGridLB] = genFreqTxGrid(prm.NumBsElements, prm.NumUsers, prm.MCS, prm.N_T, prm.Nofdm, prm.K, H_TX, azInd); % (Nofdm * N_T) x M x K
+    
     
 % % % END Transmit Signal Construction
 
     Y_tens = zeros(prm.NumRxElements, prm.Nofdm * prm.N_T, prm.K);
+    Y_tensLB = zeros(size(Y_tens));
     for k = 1:prm.K
         Y_tens(:, :, k) = (H_tens(:, :, k) * txGrid(:, :, k));
+        Y_tensLB(:, :, k) = (H_tens(:, :, k) * txGridLB(:, :, k));
     end
     
 % % % Receive Processing
@@ -96,18 +100,21 @@ rng(42);
     % Currently just grab any subcarrier - maybe has to do with not
     % dealing with scaled offset, dominated mostly by array structure
     x_AZ = squeeze(txGrid(:, :, 1)); % Space x Time - N x Nofdm * N_T
+    x_AZLB = squeeze(txGridLB(:, :, 1));
     y_AZ = squeeze(Y_tens(:, :, 1));
-    
-%     x_AZ = squeeze( mean ( txGrid(:, :, 1), 2)); % Broken for some reason
-%     y_AZ = squeeze( mean ( Y_tens(:, :, 1), 2));
+    y_AZLB = squeeze(Y_tensLB(:, :, 1));
     
     y_vec_AZ = reshape(y_AZ, [numel(y_AZ), 1]);
+    y_vec_AZLB = reshape(y_AZLB, [numel(y_AZLB), 1]);
 
     Phi_AZ = kron(x_AZ.', W); % N*Nofdm*N_T x MN
+    Phi_AZLB = kron(x_AZLB.', W);
+
     Psi_AZ = kr(H_TX, H_RX); % 
     Psi_AZ = Psi_AZ ./ norm(Psi_AZ);
     
     [z_hat_AZ, I_AZ] = solveCS_OMP(y_vec_AZ, Phi_AZ, Psi_AZ);
+    [z_hat_AZLB, I_AZLB] = solveCS_OMP(y_vec_AZLB, Phi_AZLB, Psi_AZ);
 
     % Construct ranging dic
     Psi_R = zeros(prm.K, prm.N_R);
@@ -130,41 +137,54 @@ rng(42);
     x_R = squeeze(txGrid(tx_rand, :, :)).'; % Freq x Time
     y_R = squeeze(Y_tens(rx_rand, :, :)).'; % 
     
+    x_RLB = squeeze(txGridLB(tx_rand, :, :)).';
+    y_RLB = squeeze(Y_tensLB(rx_rand, :, :)).';
+
     y_R_vec = reshape(y_R.', [numel(y_R), 1]);
+    y_R_vecLB = reshape(y_RLB.', [numel(y_RLB), 1]);
 %     y_R = steerTensor(Y_tens, H_RX, I_AZ, z_hat_AZ(I_AZ)).';
 %     x_R = steerTensor(txGrid, H_TX, I_AZ, z_hat_AZ(I_AZ)).';
     
     H_hat = mean(y_R ./ x_R, 2); % Average freq response over OFDM symbols
-    
+    H_hatLB = mean(y_RLB ./ x_RLB, 2);
+
     [z_hat_R, I_R] = solveCS_OMP(H_hat, Phi_R, Psi_R);
+    [z_hat_RLB, I_RLB] = solveCS_OMP(H_hatLB, Phi_R, Psi_R);
 %     z_hat_R = ifft(squeeze(mean(Y_tens(rx_rand, :, :) ./ txGrid(tx_rand, :, :), 2))); % Choose random antenna pairing, average over all OFDM symbols - this has higher interference compared to BF 
     
     figure; 
     subplot(1, 2, 1); hold on; 
     stem(-60:120/(prm.N_theta-1):60, abs(sum(RangeAzProfile, 1)));
     stem(-60:120/(prm.N_theta-1):60, abs(z_hat_AZ), '--x');
+    stem(-60:120/(prm.N_theta-1):60, abs(z_hat_AZLB), '--x');
     xlabel('\theta');
     ylabel('Magnitude');
     title('Azimuth Profile')
-    legend({'True', 'Estimate'}, 'Location', 'south')  
+    legend({'True', 'Estimate', 'LB Estimate'}, 'Location', 'south')  
     
     subplot(1, 2, 2); hold on;
     stem(prm.RangeBins, abs(sum(RangeAzProfile, 2)));
     stem(prm.RangeBins, abs(z_hat_R), '--x');
+    stem(prm.RangeBins, abs(z_hat_RLB), '--x');
     xlabel('Range [m]');
     ylabel('Magnitude');
     title('Range Profile')
-    legend({'True', 'Estimate'}, 'Location', 'south') 
+    legend({'True', 'Estimate', 'LB Estimate'}, 'Location', 'south') 
 % % % 
-function [txGrid] = genFreqTxGrid(M, U, MCS, N_T, Nofdm, K, txCodebook)
+
+function [txGrid, txGridLB] = genFreqTxGrid(M, U, MCS, N_T, Nofdm, K, txCodebook, azInd)
     %Generates baseband equivalent frequency-domain signaling
     % txGrid output is (Nofdm * N_T) x M x K
     % txGrid output is (M x Nofdm * N_T x K)
     txGrid = zeros(M, Nofdm * N_T, K);
+    txGridLB = zeros(size(txGrid)); % We use as a transmit signal sent only to the scattering centers - use as a lower bound on error
+    L = length(azInd);
 
     sIndices = randi([0 MCS-1], [U, Nofdm * N_T, K]);     % per user symbols given as  Nofdm * N_T x U x K
     s = qammod(sIndices, MCS, 'UnitAveragePower', true); 
     
+    sIndicesLB = randi([0 MCS-1], [L, Nofdm * N_T, K]);
+    sLB = qammod(sIndicesLB, MCS, 'UnitAveragePower', true); 
     % precoded transmit symbols given as Nofdm * N_T x M x K
 
     % Loop over subcarriers and slots because idk how to tensorize this
@@ -172,16 +192,20 @@ function [txGrid] = genFreqTxGrid(M, U, MCS, N_T, Nofdm, K, txCodebook)
         for n_T = 1:N_T
             txAngles = randperm(size(txCodebook, 2), U);
             F = 1./sqrt(U) * txCodebook(:, txAngles); % M x U - Change per frame (14 OFDM symbols) and per subcarrier (although should be per 12 subcarriers)
+            FLB = 1./sqrt(L) * txCodebook(:, azInd); % M x L
             for nofdm = 1:Nofdm
                 startTimeIndex = (Nofdm * (n_T - 1));
                 s_slice = squeeze(s(:, startTimeIndex + nofdm, k)); % U x 1
+                s_sliceLB = squeeze(sLB(:, startTimeIndex + nofdm, k)); % L x 1
+
                 txGrid(:, startTimeIndex + nofdm, k) = F*s_slice;
+                txGridLB(:, startTimeIndex + nofdm, k) = FLB*s_sliceLB;
             end
         end
     end
 end
 
-function [H_tens, RangeAzProfile, ScatPosPol] = genGridChannel(prm)
+function [H_tens, RangeAzProfile, ScatPosPol, azInd] = genGridChannel(prm)
     % H _tens output as N x M x K
     % RangeAzProfile as N_R x N_theta
     % ScatPosPol as 3 x L
