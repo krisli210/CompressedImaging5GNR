@@ -1,7 +1,7 @@
 close all
 clear 
 
-rng(43);
+rng(44);
 
 
 % % % OFDM Signal Params
@@ -12,7 +12,7 @@ rng(43);
 
     prm.Delta_f = 120*1e3; % SCS in KHz
     
-    prm.NRB = 80; % number of resource blocks
+    prm.NRB = 40; % number of resource blocks
     prm.K = 12*prm.NRB;
     
 % % % END OFDM Signal Params
@@ -47,10 +47,10 @@ rng(43);
     
     prm.freqSamples = 6; % number of subcarriers to sample in the rx
     % % % % % % % Grid/Target Construction
-    prm.L = 1;
+    prm.L = 4;
     prm.rMin = 20; prm.rMax = 100;
 
-    limit_rangeRes = false;
+    limit_rangeRes = true;
     if (limit_rangeRes)
         prm.delta_R = prm.PropagationSpeed./(2*prm.Delta_f*prm.K); % nominal range resolution
     else
@@ -79,7 +79,7 @@ rng(43);
     Psi_R = zeros(prm.K, prm.N_R);
     for r = 1:length(prm.RangeBins)
         tau_r = 2 * prm.RangeBins(r) / prm.PropagationSpeed;
-        Psi_R(:, r) = exp(-1j * 2*pi .* [0:prm.K-1]*prm.Delta_f * tau_r); % This is just the ifft of an identity
+        Psi_R(:, r) = exp(-1j * 2*pi .* [0:prm.K-1]*prm.Delta_f*tau_r); % This is just the ifft of an identity
 %         Psi_R(:, r) = Psi_R(:, r) ./ norm(Psi_R(:, r));
     end
     Psi_R = Psi_R ./ norm(Psi_R);
@@ -104,71 +104,28 @@ rng(43);
     end
     
 % % % Receive Processing
-    W = eye(prm.NumRxElements);
-    % Az Cutting
-    % Currently just grab any subcarrier - maybe has to do with not
-    % dealing with scaled offset, dominated mostly by array structure
-    kSubsample = randperm(prm.K, prm.freqSamples);
-    x_AZ = txGrid(:, :, 1); % Space x Time - N x Nofdm * N_T
-    y_AZ = Y_tens(:, :, 1);
+    RangeAzProfile_hat = sequentialOMP(txGrid, Y_tens, Psi_AZ, Psi_R, H_TX, H_RX, prm);
     
-    y_vec_AZ = reshape(y_AZ, [numel(y_AZ), 1]);
-
-    Phi_AZ = kron(x_AZ.', W); % N*Nofdm*N_T x MN
-    
-    [z_hat_AZ, I_AZ] = solveCS_OMP(y_vec_AZ, Phi_AZ, Psi_AZ);
-
-    % Construct ranging dic
-    Phi_R = eye(size(Psi_R, 1));
-
-    % Range Cutting
-
-    % Choose random antenna elements for now to test IFFT basis
-    tx_rand = randi(prm.BsArraySize);
-    rx_rand = randi(prm.RxArraySize);
-    
-    x_R = squeeze(txGrid(tx_rand, :, :)).'; % Freq x Time
-    y_R = squeeze(Y_tens(rx_rand, :, :)).'; % 
-    
-%     weight_mags = ones(1, length(I_AZ)).';
-%     y_R = steerTensor(Y_tens, H_RX, I_AZ, weight_mags).';
-%     x_R = steerTensor(txGrid, H_TX, I_AZ, weight_mags).';
-%     
-    H_hat = mean(y_R ./ x_R, 2); % Average freq response over OFDM symbols
-    [z_hat_R, I_R] = solveCS_OMP(H_hat, Phi_R, Psi_R);
-%     z_hat_R = ifft(squeeze(mean(Y_tens(rx_rand, :, :) ./ txGrid(tx_rand, :, :), 2))); % Choose random antenna pairing, average over all OFDM symbols - this has higher interference compared to BF 
-   
-   
 % % % END Receive Processing
     
-figure; 
-subplot(1, 2, 1); hold on; 
-stem(-60:120/(prm.N_theta-1):60, abs(sum(RangeAzProfile, 1)));
-stem(-60:120/(prm.N_theta-1):60, abs(z_hat_AZ), '--x');
-xlabel('\theta');
-ylabel('Magnitude');
-title('Azimuth Profile')
-legend({'True', 'Estimate'}, 'Location', 'best')  
-
-subplot(1, 2, 2); hold on;
-stem(prm.RangeBins, abs(sum(RangeAzProfile, 2)));
-stem(prm.RangeBins, abs(z_hat_R), '--x');
-xlabel('Range [m]');
-ylabel('Magnitude');
-title('Range Profile')
-legend({'True', 'Estimate'}, 'Location', 'best') 
+ 
 
 % Construct final image
-L_hat = min(length(I_AZ), length(I_R));
-[azMag_hat, azInd_hat] = maxk(z_hat_AZ, L_hat, 'ComparisonMethod','abs');
-[rMag_hat, rInd_hat] = maxk(z_hat_R, L_hat, 'ComparisonMethod','abs');
 
-RangeAzProfile_hat = zeros(size(RangeAzProfile));
-for l = 1:L_hat
-    RangeAzProfile_hat(rInd_hat(l), azInd_hat(l)) = azMag_hat(l);
-end
+% RangeAzProfile_hat = zeros(size(RangeAzProfile));
+% for l = 1:L_hat
+%     RangeAzProfile_hat(rInd_hat(l), azInd_hat(l)) = azMag_hat(l);
+% end
 
-figure; 
+figure;
+subplot(1, 2, 1);
+[h, c] = polarPcolor(prm.RangeBins, prm.AzBins, 10*log10(abs(RangeAzProfile).^2).', ...
+    'typerose', 'default', 'labelr', 'r [m]');
+c.Label.String = 'Measured Reflection Power [dB]';
+
+subplot(1, 2, 2);
 [h, c] = polarPcolor(prm.RangeBins, prm.AzBins, 10*log10(abs(RangeAzProfile_hat).^2).', ...
     'typerose', 'default', 'labelr', 'r [m]');
 c.Label.String = 'Measured Reflection Power [dB]';
+
+sgtitle('True (L) vs. Estimate (R)'); 

@@ -1,7 +1,7 @@
 close all
 clear 
 
-rng(43);
+rng(42);
 
 
 % % % OFDM Signal Params
@@ -12,7 +12,7 @@ rng(43);
 
     prm.Delta_f = 120*1e3; % SCS in KHz
     
-    prm.NRB = 80; % number of resource blocks
+    prm.NRB = 4; % number of resource blocks
     prm.K = 12*prm.NRB;
     
 % % % END OFDM Signal Params
@@ -45,12 +45,11 @@ rng(43);
     thetaMin = prm.BsAZlim(1); thetaMax = prm.BsAZlim(2); %in Azimuth
     prm.AzBins = thetaMin:(thetaMax-thetaMin)/(prm.N_theta-1):thetaMax;
     
-    prm.freqSamples = 6; % number of subcarriers to sample in the rx
     % % % % % % % Grid/Target Construction
     prm.L = 1;
     prm.rMin = 20; prm.rMax = 100;
 
-    limit_rangeRes = false;
+    limit_rangeRes = true;
     if (limit_rangeRes)
         prm.delta_R = prm.PropagationSpeed./(2*prm.Delta_f*prm.K); % nominal range resolution
     else
@@ -86,7 +85,7 @@ rng(43);
 % % % Transmit Signal Construction
 
     prm.NumUsers = 4;
-    prm.N_T = 6; % number of time slots
+    prm.N_T = prm.NRB; % number of time slots
     prm.Nofdm = 14; %number of OFDM symbols per slot
     prm.MCS = 16; %modulation order
     
@@ -99,76 +98,34 @@ rng(43);
     % Rx Signal
     rxGain = 10^(0/10);
     Y_tens = zeros(prm.NumRxElements, prm.Nofdm * prm.N_T, prm.K);
+    randCarrier = randperm(prm.K, 1);
     for k = 1:prm.K
-        Y_tens(:, :, k) = rxGain .* (H_tens(:, :, k) * txGrid(:, :, k));
+%         Y_tens(:, :, k) = rxGain .* (H_tens(:, :, k) * txGrid(:, :, k));
+        Y_tens(:, :, k) = rxGain .* (H_tens(:, :, k) * txGrid(:, :, randCarrier)); % this kronecker model will only work for now if we use same transmit signal across all freq
     end
     
 % % % Receive Processing
     W = eye(prm.NumRxElements);
     % Az Cutting
-    % Currently just grab any subcarrier - maybe has to do with not
-    % dealing with scaled offset, dominated mostly by array structure
-    kSubsample = randperm(prm.K, prm.freqSamples);
-    x_AZ = txGrid(:, :, 1); % Space x Time - N x Nofdm * N_T
-    y_AZ = Y_tens(:, :, 1);
     
-    y_vec_AZ = reshape(y_AZ, [numel(y_AZ), 1]);
-
-    Phi_AZ = kron(x_AZ.', W); % N*Nofdm*N_T x MN
+    X = txGrid(:, :, randCarrier);
     
-    [z_hat_AZ, I_AZ] = solveCS_OMP(y_vec_AZ, Phi_AZ, Psi_AZ);
-
-    % Construct ranging dic
-    Phi_R = eye(size(Psi_R, 1));
-
-    % Range Cutting
-
-    % Choose random antenna elements for now to test IFFT basis
-    tx_rand = randi(prm.BsArraySize);
-    rx_rand = randi(prm.RxArraySize);
     
-    x_R = squeeze(txGrid(tx_rand, :, :)).'; % Freq x Time
-    y_R = squeeze(Y_tens(rx_rand, :, :)).'; % 
+    Phi_AZ = kron(X.', W);
+    A_AZ = (Phi_AZ * Psi_AZ);
     
-%     weight_mags = ones(1, length(I_AZ)).';
-%     y_R = steerTensor(Y_tens, H_RX, I_AZ, weight_mags).';
-%     x_R = steerTensor(txGrid, H_TX, I_AZ, weight_mags).';
-%     
-    H_hat = mean(y_R ./ x_R, 2); % Average freq response over OFDM symbols
-    [z_hat_R, I_R] = solveCS_OMP(H_hat, Phi_R, Psi_R);
-%     z_hat_R = ifft(squeeze(mean(Y_tens(rx_rand, :, :) ./ txGrid(tx_rand, :, :), 2))); % Choose random antenna pairing, average over all OFDM symbols - this has higher interference compared to BF 
-   
-   
-% % % END Receive Processing
+    y_vec = reshape(Y_tens, [numel(Y_tens) 1]);
+    A = kron(Psi_R, A_AZ);
+
+%     z_hat = linsolve(A, y_vec);
+
+    sensingDict = sensingDictionary('CustomDictionary', A);
+    [mag_est, YI, I, R] = matchingPursuit(sensingDict, y_vec, maxIterations=10, Algorithm="OMP", maxerr={"L1", 1e-4});
+
+    RangeAzProfile_hat = reshape(mag_est, [prm.N_R, prm.N_theta]);
     
-figure; 
-subplot(1, 2, 1); hold on; 
-stem(-60:120/(prm.N_theta-1):60, abs(sum(RangeAzProfile, 1)));
-stem(-60:120/(prm.N_theta-1):60, abs(z_hat_AZ), '--x');
-xlabel('\theta');
-ylabel('Magnitude');
-title('Azimuth Profile')
-legend({'True', 'Estimate'}, 'Location', 'best')  
-
-subplot(1, 2, 2); hold on;
-stem(prm.RangeBins, abs(sum(RangeAzProfile, 2)));
-stem(prm.RangeBins, abs(z_hat_R), '--x');
-xlabel('Range [m]');
-ylabel('Magnitude');
-title('Range Profile')
-legend({'True', 'Estimate'}, 'Location', 'best') 
-
-% Construct final image
-L_hat = min(length(I_AZ), length(I_R));
-[azMag_hat, azInd_hat] = maxk(z_hat_AZ, L_hat, 'ComparisonMethod','abs');
-[rMag_hat, rInd_hat] = maxk(z_hat_R, L_hat, 'ComparisonMethod','abs');
-
-RangeAzProfile_hat = zeros(size(RangeAzProfile));
-for l = 1:L_hat
-    RangeAzProfile_hat(rInd_hat(l), azInd_hat(l)) = azMag_hat(l);
-end
-
-figure; 
-[h, c] = polarPcolor(prm.RangeBins, prm.AzBins, 10*log10(abs(RangeAzProfile_hat).^2).', ...
-    'typerose', 'default', 'labelr', 'r [m]');
-c.Label.String = 'Measured Reflection Power [dB]';
+    figure;
+    subplot(1, 2, 1)
+    imagesc(abs(RangeAzProfile))
+    subplot(1, 2, 2)
+    imagesc(abs(RangeAzProfile_hat))
