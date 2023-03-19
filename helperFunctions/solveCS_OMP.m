@@ -11,10 +11,7 @@ function [mag_est, I, YI, R] = solveCS_OMP(y, Phi, Psi, varargin)
     [mag_est, YI, I, R] = matchingPursuit(sensingDict, y, maxIterations=OMP_iters, Algorithm="OMP", maxerr={"L1", 1e-4});
     
     A_sub = Phi * Psi(:, I); % Solve magnitude posthence via direct linsolve against estimated support
-    if length(I) > 1
-        mags = linsolve(A_sub, y);
-    else
-        mags = linsolve(A_sub, y.');
-    end
+    mags = linsolve(A_sub, y);
+
     mag_est(I) = mags;
 end
