@@ -1,7 +1,7 @@
 close all
 clear 
 
-rng(42);
+rng(422);
 
 
 % % % OFDM Signal Params
@@ -12,7 +12,7 @@ rng(42);
 
     prm.Delta_f = 120*1e3; % SCS in KHz
     
-    prm.NRB = 4; % number of resource blocks
+    prm.NRB = 30; % number of resource blocks
     prm.K = 12*prm.NRB;
     
 % % % END OFDM Signal Params
@@ -46,7 +46,7 @@ rng(42);
     prm.AzBins = thetaMin:(thetaMax-thetaMin)/(prm.N_theta-1):thetaMax;
     
     % % % % % % % Grid/Target Construction
-    prm.L = 1;
+    prm.L = 4;
     prm.rMin = 20; prm.rMax = 100;
 
     limit_rangeRes = true;
@@ -56,7 +56,12 @@ rng(42);
         % Block for changing rangeRes to a non-nominal value
         prm.delta_R = 6;
     end
-    prm.RangeBins = prm.rMin : prm.delta_R : prm.rMax;
+    prm.WholeRange = 0:prm.delta_R:(prm.K-1)*prm.delta_R;
+    minIndex = find(prm.WholeRange < prm.rMin, 1, 'last')+1;
+    maxIndex = find(prm.WholeRange > prm.rMax, 1, 'first')-1;
+
+%     prm.RangeBins = prm.rMin : prm.delta_R : prm.rMax;
+    prm.RangeBins = prm.WholeRange(minIndex:maxIndex);
     prm.N_R = numel(prm.RangeBins);
 
     [H_tens, RangeAzProfile, ScatPosPol, azInd] = genGridChannel(prm);
@@ -98,34 +103,52 @@ rng(42);
     % Rx Signal
     rxGain = 10^(0/10);
     Y_tens = zeros(prm.NumRxElements, prm.Nofdm * prm.N_T, prm.K);
-    randCarrier = randperm(prm.K, 1);
     for k = 1:prm.K
 %         Y_tens(:, :, k) = rxGain .* (H_tens(:, :, k) * txGrid(:, :, k));
-        Y_tens(:, :, k) = rxGain .* (H_tens(:, :, k) * txGrid(:, :, randCarrier)); % this kronecker model will only work for now if we use same transmit signal across all freq
+        Y_tens(:, :, k) = rxGain .* (H_tens(:, :, k) * txGrid(:, :, k)); % this kronecker model will only work for now if we use same transmit signal across all freq
     end
     
 % % % Receive Processing
+    Y_kron = reshape(Y_tens, [prm.NumRxElements * prm.N_T * prm.Nofdm, prm.K]);
+    z_theta_per_K = zeros(prm.N_theta, prm.K);
+    YI_per_K = zeros(prm.NumRxElements * prm.N_T * prm.Nofdm, prm.K);
+    R_per_K = zeros(prm.NumRxElements * prm.N_T * prm.Nofdm, prm.K);
+
+    azSupport = zeros(1, prm.N_theta);
     W = eye(prm.NumRxElements);
+
     % Az Cutting
-    
-    X = txGrid(:, :, randCarrier);
-    
-    
-    Phi_AZ = kron(X.', W);
-    A_AZ = (Phi_AZ * Psi_AZ);
-    
-    y_vec = reshape(Y_tens, [numel(Y_tens) 1]);
-    A = kron(Psi_R, A_AZ);
+    for k = 1:prm.K
+        Phi_theta = kron(squeeze(txGrid(:, :, k)).', W);
+        [z_theta_per_K(:, k), I, YI_per_K(:, k), R_per_K(:,k)] = ...,
+        solveCS_OMP(Y_kron(:, k), Phi_theta, Psi_AZ, 10);
+        azSupport(I) = azSupport(I) | 1;
+    end
 
-%     z_hat = linsolve(A, y_vec);
-
-    sensingDict = sensingDictionary('CustomDictionary', A);
-    [mag_est, YI, I, R] = matchingPursuit(sensingDict, y_vec, maxIterations=10, Algorithm="OMP", maxerr={"L1", 1e-4});
-
-    RangeAzProfile_hat = reshape(mag_est, [prm.N_R, prm.N_theta]);
+    figure; 
+    subplot(1, 2, 1); hold on; 
+    stem(-60:120/(prm.N_theta-1):60, abs(sum(RangeAzProfile, 1)));
+    stem(-60:120/(prm.N_theta-1):60, abs(mean(z_theta_per_K, 2)), '--x');
+    xlabel('\theta');
+    ylabel('Magnitude');
+    title('Azimuth Profile')
+    legend({'True', 'Estimate'}, 'Location', 'south')  
     
+    RangeAzProfile_hat = zeros(size(RangeAzProfile));
+    for azBin = find(azSupport)
+        rangeProfile = ifft(z_theta_per_K(azBin, :));
+        RangeAzProfile_hat(:, azBin) = rangeProfile(minIndex:maxIndex);
+    end
+
     figure;
-    subplot(1, 2, 1)
-    imagesc(abs(RangeAzProfile))
-    subplot(1, 2, 2)
-    imagesc(abs(RangeAzProfile_hat))
+    subplot(1, 2, 1);
+    [h, c] = polarPcolor(prm.RangeBins, prm.AzBins, 10*log10(abs(RangeAzProfile).^2).', ...
+        'typerose', 'default', 'labelr', 'r [m]');
+    c.Label.String = 'Measured Reflection Power [dB]';
+    
+    subplot(1, 2, 2);
+    [h, c_hat] = polarPcolor(prm.RangeBins, prm.AzBins, 10*log10(abs(RangeAzProfile_hat).^2).', ...
+        'typerose', 'default', 'labelr', 'r [m]');
+%     c.Label.String = 'Measured Reflection Power [dB]';
+    c_hat.Limits = c.Limits;
+    sgtitle('True (L) vs. Estimate (R)'); 

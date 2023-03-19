@@ -28,14 +28,14 @@ function [H_tens, RangeAzProfile, ScatPosPol, azInd] = genGridChannel(prm)
 
         PL = (4*pi*rangeValues(l)/prm.lam)^-2;
         RangeAzProfile(rangeInd(l), azInd(l)) = PL*ScatCoeff(l);
-        for k = 0:prm.K-1
+        for k = 1:prm.K
             % Currently at the actual frequency content of k rather than
             % just k-th bin - this varies between models I've seen
 
             %In Guan, the baseband received signal has the k-th subcarrier
             %scaled by the SCS, while in Araujo (8) it is only at the bin
-            H_tens(:, :, k+1) = H_tens(:, :, k+1) + PL*ScatCoeff(l)*exp(-1j * 2*pi * ( (k*prm.Delta_f*tau_r) + tau_n_m) ); % Is the az-induced delay scaled by freq? - NO
+            H_tens(:, :, k) = H_tens(:, :, k) + PL*ScatCoeff(l)*exp(-1j * 2*pi * ( (k*prm.Delta_f*tau_r) + tau_n_m) ); % Is the az-induced delay scaled by freq? - NO
         end
     end
-    H_tens = H_tens ./ prm.NumBsElements; %Power norm
+%     H_tens = H_tens; %Power norm
 end
