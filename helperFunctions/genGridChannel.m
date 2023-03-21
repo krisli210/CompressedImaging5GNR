@@ -37,5 +37,4 @@ function [H_tens, RangeAzProfile, ScatPosPol, azInd] = genGridChannel(prm)
             H_tens(:, :, k) = H_tens(:, :, k) + PL*ScatCoeff(l)*exp(-1j * 2*pi * ( (k*prm.Delta_f*tau_r) + tau_n_m) ); % Is the az-induced delay scaled by freq? - NO
         end
     end
-%     H_tens = H_tens; %Power norm
 end

@@ -1,7 +1,7 @@
 close all
 clear 
 
-rng(422);
+rng(42);
 
 
 % % % OFDM Signal Params
@@ -12,7 +12,7 @@ rng(422);
 
     prm.Delta_f = 120*1e3; % SCS in KHz
     
-    prm.NRB = 30; % number of resource blocks
+    prm.NRB = 15; % number of resource blocks
     prm.K = 12*prm.NRB;
     
 % % % END OFDM Signal Params
@@ -46,15 +46,15 @@ rng(422);
     prm.AzBins = thetaMin:(thetaMax-thetaMin)/(prm.N_theta-1):thetaMax;
     
     % % % % % % % Grid/Target Construction
-    prm.L = 8;
+    prm.L = 4;
     prm.rMin = 20; prm.rMax = 100;
 
-    limit_rangeRes = true;
+    limit_rangeRes = false;
     if (limit_rangeRes)
         prm.delta_R = prm.PropagationSpeed./(2*prm.Delta_f*prm.K); % nominal range resolution
     else
         % Block for changing rangeRes to a non-nominal value
-        prm.delta_R = 6;
+        prm.delta_R = 4;
     end
     prm.WholeRange = 0:prm.delta_R:(prm.K-1)*prm.delta_R;
     minIndex = find(prm.WholeRange < prm.rMin, 1, 'last')+1;
@@ -71,22 +71,16 @@ rng(422);
     H_TX = zeros(prm.NumBsElements, prm.N_theta);
     H_RX = zeros(prm.NumRxElements, prm.N_theta);
     for n = 1:prm.N_theta
-        H_TX(:, n) = (1/sqrt(prm.NumBsElements)) * exp(-1j * 2 * pi * prm.DeltaTX * (0:prm.NumBsElements-1) * sind(prm.AzBins(n))).';
-        H_RX(:, n) = (1/sqrt(prm.NumRxElements)) * exp(-1j * 2 * pi * prm.DeltaRX * (0:prm.NumRxElements-1) * sind(prm.AzBins(n))).';
-%         H_TX(:, n) = collectPlaneWave(BsArray, 1, [prm.AzBins(n), 0].', prm.CenterFreq);
-%         H_RX(:, n) = collectPlaneWave(RxArray, 1, [prm.AzBins(n), 0].', prm.CenterFreq);
+        H_TX(:, n) = exp(-1j * 2 * pi * prm.DeltaTX * (0:prm.NumBsElements-1) * sind(prm.AzBins(n))).';
+        H_RX(:, n) = exp(-1j * 2 * pi * prm.DeltaRX * (0:prm.NumRxElements-1) * sind(prm.AzBins(n))).';
     end
-    
     Psi_AZ = kr(H_TX, H_RX); % 
-    Psi_AZ = Psi_AZ ./ norm(Psi_AZ);
 
     Psi_R = zeros(prm.K, prm.N_R);
     for r = 1:length(prm.RangeBins)
         tau_r = 2 * prm.RangeBins(r) / prm.PropagationSpeed;
         Psi_R(:, r) = exp(-1j * 2*pi .* [0:prm.K-1]*prm.Delta_f * tau_r); % This is just the ifft of an identity
-%         Psi_R(:, r) = Psi_R(:, r) ./ norm(Psi_R(:, r));
     end
-    Psi_R = Psi_R ./ norm(Psi_R);
     Phi_R = eye(size(Psi_R, 1));
 % % % Transmit Signal Construction
 
@@ -105,31 +99,28 @@ rng(422);
     rxGain = 10^(0/10);
     Y_tens = zeros(prm.NumRxElements, prm.Nofdm * prm.N_T, prm.K);
     for k = 1:prm.K
-%         Y_tens(:, :, k) = rxGain .* (H_tens(:, :, k) * txGrid(:, :, k));
-        Y_tens(:, :, k) = rxGain .* (H_tens(:, :, k) * txGrid(:, :, k)); % this kronecker model will only work for now if we use same transmit signal across all freq
+        Y_tens(:, :, k) = rxGain .* (H_tens(:, :, k) * txGrid(:, :, k));
     end
     
 % % % Receive Processing
     Y_kron = reshape(Y_tens, [prm.NumRxElements * prm.N_T * prm.Nofdm, prm.K]);
     z_theta_per_K = zeros(prm.N_theta, prm.K);
-    YI_per_K = zeros(prm.NumRxElements * prm.N_T * prm.Nofdm, prm.K);
-    R_per_K = zeros(prm.NumRxElements * prm.N_T * prm.Nofdm, prm.K);
 
     azSupport = zeros(1, prm.N_theta);
     W = eye(prm.NumRxElements);
 
     % Az Cutting
     for k = 1:prm.K
-        Phi_theta = kron(squeeze(txGrid(:, :, k)).', W);
-        [z_theta_per_K(:, k), I, YI_per_K(:, k), R_per_K(:,k)] = ...,
-        solveCS_OMP(Y_kron(:, k), Phi_theta, Psi_AZ, 10);
+        Phi_AZ = kron(squeeze(txGrid(:, :, k)).', W);
+        [z_theta_per_K(:, k), I] = ...,
+        solveCS_OMP(Y_kron(:, k), Phi_AZ, Psi_AZ, 10);
         azSupport(I) = azSupport(I) | 1;
     end
 
     figure; 
     subplot(1, 2, 1); hold on; 
     stem(-60:120/(prm.N_theta-1):60, abs(sum(RangeAzProfile, 1)));
-    stem(-60:120/(prm.N_theta-1):60, abs(mean(z_theta_per_K, 2)), '--x');
+    stem(-60:120/(prm.N_theta-1):60, mean(abs(z_theta_per_K), 2), '--x');
     xlabel('\theta');
     ylabel('Magnitude');
     title('Azimuth Profile')
@@ -137,8 +128,6 @@ rng(422);
     
     RangeAzProfile_hat = zeros(size(RangeAzProfile));
     for azBin = find(azSupport)
-%         rangeProfile = ifft(z_theta_per_K(azBin, :));
-%         RangeAzProfile_hat(:, azBin) = rangeProfile(minIndex:maxIndex);
         [z_hat_R, I_R] = solveCS_OMP(z_theta_per_K(azBin, :).', Phi_R, Psi_R);
         RangeAzProfile_hat(:, azBin) = z_hat_R;
     end
@@ -146,12 +135,12 @@ rng(422);
     figure;
     subplot(1, 2, 1);
     [h, c] = polarPcolor(prm.RangeBins, prm.AzBins, 10*log10(abs(RangeAzProfile).^2).', ...
-        'typerose', 'default', 'labelr', 'r [m]');
+        'typerose', 'default');
     c.Label.String = 'Measured Reflection Power [dB]';
     
     subplot(1, 2, 2);
     [h, c_hat] = polarPcolor(prm.RangeBins, prm.AzBins, 10*log10(abs(RangeAzProfile_hat).^2).', ...
-        'typerose', 'default', 'labelr', 'r [m]');
+        'typerose', 'default');
     c.Label.String = 'Measured Reflection Power [dB]';
 %     c_hat.Limits = c.Limits;
     sgtitle('True (L) vs. Estimate (R)'); 
