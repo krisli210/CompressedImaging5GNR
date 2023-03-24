@@ -67,10 +67,11 @@ p.addOptional('labelR','');
 p.addOptional('RtickLabel',[]);
 p.addOptional('colBar',1);
 p.addOptional('Rscale','linear');
-p.addOptional('colormap','parula');
+p.addOptional('colormap','sky');
 p.addOptional('ncolor',[]);
 p.addOptional('typeRose','meteo'); % 'meteo' or 'default'
 p.addOptional('circlesPos',[]);
+p.addOptional('lim', []);
 p.parse(varargin{:});
 Ncircles = p.Results.Ncircles;
 Nspokes = p.Results.Nspokes ;
@@ -83,6 +84,7 @@ myColorMap = p.Results.colormap ;
 ncolor = p.Results.ncolor ;
 circPos = p.Results.circlesPos ;
 typeRose = p.Results.typeRose ;
+lim = p.Results.lim;
 if ~isempty(circPos)
     Origin = max([min(circPos),min(R)]);
     circPos(circPos<min(R))=[];
@@ -110,6 +112,10 @@ if isempty(circPos)
 end
 if ~isempty(circPos)
     circPos = unique([min(R),circPos,max(R)]);
+end
+
+if isempty(lim)
+    lim = [min(Z(~isinf(Z)), [], 'all'), max(Z, [], 'all')];
 end
 %% Preliminary checks
 % case where dimension is reversed
@@ -145,6 +151,7 @@ Rrange = rMax - rMin; % get the range for the radius
 YY = (rNorm)'*cosd(theta);
 XX = (rNorm)'*sind(theta);
 h = pcolor(XX,YY,Z,'parent',cax);
+
 if ~isempty(ncolor)
     cmap = feval(myColorMap,ncolor);
     colormap(gca,cmap);
@@ -166,17 +173,21 @@ end
 if colBar==1,
     c =colorbar('location','WestOutside');
 %     caxis([quantile(Z(:),0.01),quantile(Z(:),0.99)])
-    caxis([min(Z, [], 'all'), max(Z, [], 'all')])
+    caxis(lim)
 else
     c = [];
 end
 %% Outputs
-nargoutchk(0,2)
+nargoutchk(0,3)
 if nargout==1,
     varargout{1}=h;
 elseif nargout==2,
     varargout{1}=h;
     varargout{2}=c;
+elseif nargout==3,
+    varargout{1}=h;
+    varargout{2}=c;
+    varargout{3} = lim;
 end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Nested functions
@@ -301,7 +312,7 @@ end
                 (contourD(kk)).*sind(position),...
                 rtick,'verticalalignment','BaseLine',...
                 'horizontalAlignment', 'right',...
-                'handlevisibility','off','parent',cax, 'Color', 'w');
+                'handlevisibility','off','parent',cax, 'Color', [0 0 0]);
             if min(round(abs(90-theta)))<5 && strcmpi(typeRose,'default'),
                 t.Position =  t.Position - [0,0.1,0];
                 t.Interpreter = 'latex';
@@ -333,7 +344,7 @@ end
             end
             
             t.Interpreter = 'latex';
-            t.Color = 'w';
+            t.Color = [0 0 0];
             if min(round(theta))==90 && strcmpi(typeRose,'meteo'),
                 t.Position =  t.Position + [0,0.05,0];
                 clear t;
