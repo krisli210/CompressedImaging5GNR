@@ -67,7 +67,7 @@ p.addOptional('labelR','');
 p.addOptional('RtickLabel',[]);
 p.addOptional('colBar',1);
 p.addOptional('Rscale','linear');
-p.addOptional('colormap','sky');
+p.addOptional('colormap','parula');
 p.addOptional('ncolor',[]);
 p.addOptional('typeRose','meteo'); % 'meteo' or 'default'
 p.addOptional('circlesPos',[]);

@@ -12,6 +12,7 @@ function [H_tens, RangeAzProfile, ScatPosPol, threshold] = genGridChannel(prm)
     rangeValues = prm.RangeBins(rangeInd);
     ScatPosPol = [rangeValues; azValues; zeros(1, prm.L)];
     ScatCoeff = ones(1, prm.L) .* complex(1, 1) ./ sqrt(2); %Unit reflectors
+    % ScatCoeff = zeros(1, prm.L);
 
     RangeAzProfile = zeros(prm.N_R, prm.N_theta);
     H_tens = zeros(prm.NumRxElements, prm.NumBsElements, prm.K);
@@ -28,7 +29,7 @@ function [H_tens, RangeAzProfile, ScatPosPol, threshold] = genGridChannel(prm)
             end
         end
 
-        PL = (4*pi*rangeValues(l)/prm.lam)^-2;
+        PL = (4*pi * 2*rangeValues(l)/prm.lam)^-2;
         RangeAzProfile(rangeInd(l), azInd(l)) = PL*ScatCoeff(l);
         for k = 1:prm.K
             % Currently at the actual frequency content of k rather than
@@ -40,5 +41,5 @@ function [H_tens, RangeAzProfile, ScatPosPol, threshold] = genGridChannel(prm)
         end
     end
 
-    threshold = complex(1, 1) ./ sqrt(2) * (4*pi*(prm.rMax+10)/prm.lam)^-2; % Threshold is given as a unit reflector past max range
+    threshold = complex(1, 1) ./ sqrt(2) * (4*pi* 2 * (prm.rMax+10)/prm.lam)^-2; % Threshold is given as a unit reflector past max range
 end

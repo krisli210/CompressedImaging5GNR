@@ -6,7 +6,7 @@ rng(42);
 
 % % % OFDM Signal Params
 
-    prm.CenterFreq = 28e9;
+    prm.CenterFreq = 26e9;
     prm.PropagationSpeed = physconst('LightSpeed');
     prm.lam = prm.PropagationSpeed/prm.CenterFreq;
 
@@ -16,7 +16,7 @@ rng(42);
     prm.K = 12*prm.NRB;
     
     prm.NumUsers = 4; % U per RB
-    prm.N_T = 4; % number of time slots
+    prm.N_T = 1; % number of time slots
     prm.Nofdm = 14; %number of OFDM symbols per slot
     prm.MCS = 16; %modulation order
     
@@ -44,14 +44,15 @@ rng(42);
     
     % % % % % % % Target Construction
 %     prm.N_theta = prm.BsArraySize * prm.RxArraySize; %number of grid spots, i.e. dimension of the quantized azimuth profile
-    prm.N_theta = 128;
+    prm.N_theta = 24;
     thetaMin = prm.BsAZlim(1); thetaMax = prm.BsAZlim(2); %in Azimuth
     prm.AzBins = thetaMin:(thetaMax-thetaMin)/(prm.N_theta-1):thetaMax;
     
     % % % % % % % Grid/Target Construction
-    prm.L = 8;
-    prm.rMin = 20; prm.rMax = 100;
-
+    prm.L = 5;
+    prm.rMin = 20; prm.rMax = 70;
+    
+    max_FSPL_dB = 10*log10((4*pi*prm.rMax/prm.lam)^-2);
     limit_rangeRes = true;
     if (limit_rangeRes)
         prm.delta_R = prm.PropagationSpeed./(2*prm.Delta_f*prm.K); % nominal range resolution
@@ -96,15 +97,16 @@ rng(42);
     % Rx Signal
     SNR_dB_per_K = Pt + Pr - (No + 10*log10(prm.Delta_f)); % Pt / N_0
     
-    W = exp(-1j*2*pi* ...
-        sind(randi(359, ([prm.NumRxElements prm.NumRxElements prm.K]))));
+    % W = exp(-1j*2*pi* ...
+    %     sind(randi(359, ([prm.NumRxElements prm.NumRxElements prm.K]))));
+    W = repmat(eye(prm.NumRxElements), [1 1 prm.K]);
     Y_tens = zeros(prm.NumRxElements, prm.Nofdm * prm.N_T, prm.K);
     
     for k = 1:prm.K
         n_k = sqrt(10^(-SNR_dB_per_K / 10)) .* ... 
-            (rand([prm.NumRxElements, prm.N_T * prm.Nofdm]) + 1j * rand([prm.NumRxElements, prm.N_T * prm.Nofdm]));
+            (randn([prm.NumRxElements, prm.N_T * prm.Nofdm]) + 1j * randn([prm.NumRxElements, prm.N_T * prm.Nofdm]));
+        n_k = 0;
         Y_tens(:, :, k) = W(:, :, k) * (H_tens(:, :, k) * txGrid(:, :, k) + n_k);
-        % Y_tens(:, :, k) = eye(prm.NumRxElements) * (H_tens(:, :, k) * txGrid(:, :, k) + n_k);
     end
 
 % % % Receive Processing
@@ -116,40 +118,43 @@ rng(42);
     % Az Cutting
     for k = 1:prm.K
         Phi_AZ = kron(squeeze(txGrid(:, :, k)).', W(:, :, k));
-        [z_theta_per_K(:, k), I] = ...,
-        solveCS_OMP(Y_kron(:, k), Phi_AZ, Psi_AZ, 10);
+        [z_theta_per_K(:, k), I] = solveCS_OMP(Y_kron(:, k), Phi_AZ, Psi_AZ, 10);
+        % z_theta_per_K(:, k) = linsolve(Phi_AZ*Psi_AZ, Y_kron(:, k));
+        % I = find(z_theta_per_K(:, k));
         azSupport(I) = azSupport(I) | 1;
     end
 
-    % figure; 
-    % subplot(1, 2, 1); hold on; 
-    % stem(-60:120/(prm.N_theta-1):60, abs(sum(RangeAzProfile, 1)));
+    figure; 
+    subplot(1, 2, 1); hold on; 
+    stem(-60:120/(prm.N_theta-1):60, abs(sum(RangeAzProfile, 1)));
     % stem(-60:120/(prm.N_theta-1):60, mean(abs(z_theta_per_K), 2), '--x');
-    % xlabel('\theta');
-    % ylabel('Magnitude');
-    % title('Azimuth Profile')
-    % legend({'True', 'Estimate'}, 'Location', 'south')  
+    stem(-60:120/(prm.N_theta-1):60, abs(z_theta_per_K(:, 1)), '--x');
+    xlabel('\theta');
+    ylabel('Magnitude');
+    title('Azimuth Profile')
+    legend({'True', 'Estimate'}, 'Location', 'south')  
     
     RangeAzProfile_hat = zeros(size(RangeAzProfile));
     for azBin = find(azSupport)
-%         [z_hat_R, I_R] = solveCS_OMP(z_theta_per_K(azBin, :).', Phi_R, Psi_R);
-        z_hat_R = linsolve(Psi_R, z_theta_per_K(azBin, :).');
-        RangeAzProfile_hat(z_hat_R >= threshold, azBin) = z_hat_R(z_hat_R >= threshold);
+        [z_hat_R, I_R] = solveCS_OMP(z_theta_per_K(azBin, :).', Phi_R, Psi_R);
+        % z_hat_R = linsolve(Psi_R, z_theta_per_K(azBin, :).');
+        % RangeAzProfile_hat(z_hat_R >= threshold, azBin) = z_hat_R(z_hat_R >= threshold);
+        RangeAzProfile_hat(:, azBin) = z_hat_R;
     end
     ssim_val = ssim(abs(RangeAzProfile_hat).^2, ...
         abs(RangeAzProfile).^2);
     NSE = 10*log10(norm(RangeAzProfile_hat - RangeAzProfile).^2 ./ norm(RangeAzProfile).^2);
 
     figure;
-    subplot(1, 2, 1);
-    [h, c, lim] = polarPcolor(prm.RangeBins, prm.AzBins, 10*log10(abs(RangeAzProfile).^2).', ...
-        'typerose', 'default', 'labelR', 'r [m]');
-    c.Label.String = 'Measured Reflection Power [dB]';
-    
     subplot(1, 2, 2);
-    [h, c_hat] = polarPcolor(prm.RangeBins, prm.AzBins, 10*log10(abs(RangeAzProfile_hat).^2).', ...
+    [h, c_hat, lim] = polarPcolor(prm.RangeBins, prm.AzBins, 10*log10(abs(RangeAzProfile_hat).^2).', ...
+        'typerose', 'default', 'labelR', 'r [m]');
+    c_hat.Label.String = 'Measured RCS [dB]';
+    subplot(1, 2, 1);
+
+    [h, c, lim] = polarPcolor(prm.RangeBins, prm.AzBins, 10*log10(abs(RangeAzProfile).^2).', ...
         'typerose', 'default', 'labelR', 'r [m]', 'lim', lim);
-    c.Label.String = 'Measured Reflection Power [dB]';
+    c.Label.String = 'Measured RCS [dB]';
     sgtitle({'True (L) vs. Estimate (R)', ...
-        ['SSIM = ' num2str(ssim_val) '; $||\hat{z} - z||^2 = $' num2str(NSE) ' [dB]']}, ...
-        'interpreter', 'latex'); 
+    ['NSE = ' ' $\frac{||\hat{z} - z||^2}{||z||^2} = $' num2str(NSE) ' [dB]']}, ...
+    'interpreter', 'latex'); 
