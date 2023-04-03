@@ -12,7 +12,6 @@ function [H_tens, RangeAzProfile, ScatPosPol, threshold] = genGridChannel(prm)
     rangeValues = prm.RangeBins(rangeInd);
     ScatPosPol = [rangeValues; azValues; zeros(1, prm.L)];
     ScatCoeff = ones(1, prm.L) .* complex(1, 1) ./ sqrt(2); %Unit reflectors
-    % ScatCoeff = zeros(1, prm.L);
 
     RangeAzProfile = zeros(prm.N_R, prm.N_theta);
     H_tens = zeros(prm.NumRxElements, prm.NumBsElements, prm.K);

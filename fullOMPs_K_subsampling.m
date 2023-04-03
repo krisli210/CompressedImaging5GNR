@@ -45,16 +45,16 @@ rng(42);
     prm.AzBins = thetaMin:(thetaMax-thetaMin)/(prm.N_theta-1):thetaMax;
     
     % % % % % % % Grid/Target Construction
-    prm.L = 8;
+    prm.L = 7;
     prm.rMin = 20; prm.rMax = 70;
     
     max_FSPL_dB = 10*log10((4*pi*prm.rMax/prm.lam)^-2);
-    limit_rangeRes = true;
+    limit_rangeRes = false;
     if (limit_rangeRes)
         prm.delta_R = prm.PropagationSpeed./(2*prm.Delta_f*prm.K); % nominal range resolution
     else
         % Block for changing rangeRes to a non-nominal value
-        prm.delta_R = 5;
+        prm.delta_R = 2;
     end
     prm.WholeRange = 0:prm.delta_R:(prm.K-1)*prm.delta_R;
     minIndex = find(prm.WholeRange < prm.rMin, 1, 'last')+1;
@@ -94,10 +94,10 @@ rng(42);
     Y_tens = zeros(prm.NumRxElements, prm.Nofdm * prm.N_T, prm.K);
     
     for k = 1:prm.K
-        n_k = 0;
-        Y_tens(:, :, k) = W(:, :, k) * (H_tens(:, :, k) * txGrid(:, :, k) + n_k);
-%         [Y_tens(:, :, k), var] = awgn(H_tens(:, :, k) * txGrid(:, :, k), 10, 'measured') ;
-%         Y_tens(:, :, k) = W(:, :, k) * Y_tens(:, :, k);
+        % n_k = 0;
+        % Y_tens(:, :, k) = W(:, :, k) * (H_tens(:, :, k) * txGrid(:, :, k) + n_k);
+        [Y_tens(:, :, k), var] = awgn(H_tens(:, :, k) * txGrid(:, :, k), 10, 'measured') ;
+        Y_tens(:, :, k) = W(:, :, k) * Y_tens(:, :, k);
     end
 
 % % % Receive Processing

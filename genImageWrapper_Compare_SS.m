@@ -24,14 +24,14 @@ prm.SNR_dB = -10; % Defined as the receive signal power / noise variance
 % % % % % Array and Channel Info
 
 prm.BsPos = [0; 0; 0];
-prm.BsArraySize = 18; %BS Dimension
+prm.BsArraySize = 16; %BS Dimension
 prm.NumBsElements = prod(prm.BsArraySize);
 prm.DeltaTX = .5; % Element spacing normalized by wavelength
 prm.BsAZlim = [-60 60];
 prm.BsELlim = [-90 0];
 
 prm.RxPos = [0; 0; 0];
-prm.RxArraySize = 15;
+prm.RxArraySize = 16;
 prm.DeltaRX = prm.NumBsElements * .5; % Set for virtual array 
 prm.NumRxElements = prod(prm.RxArraySize);
 prm.RxAZlim = prm.BsAZlim;
@@ -44,7 +44,7 @@ thetaMin = prm.BsAZlim(1); thetaMax = prm.BsAZlim(2); %in Azimuth
 prm.AzBins = thetaMin:(thetaMax-thetaMin)/(prm.N_theta-1):thetaMax;
 
 % % % % % % % Grid/Target Construction
-prm.L = 5;
+prm.L = 8;
 prm.rMin = 20; prm.rMax = 70;
 
 max_FSPL_dB = 10*log10((4*pi*prm.rMax/prm.lam)^-2);
@@ -63,14 +63,6 @@ maxIndex = find(prm.WholeRange > prm.rMax, 1, 'first')-1;
 prm.RangeBins = prm.WholeRange(minIndex:maxIndex);
 prm.N_R = numel(prm.RangeBins);
 
-H_TX = zeros(prm.NumBsElements, prm.N_theta);
-H_RX = zeros(prm.NumRxElements, prm.N_theta);
-for n = 1:prm.N_theta
-    H_TX(:, n) = exp(-1j * 2 * pi * prm.DeltaTX * (0:prm.NumBsElements-1) * sind(prm.AzBins(n))).';
-    H_RX(:, n) = exp(-1j * 2 * pi * prm.DeltaRX * (0:prm.NumRxElements-1) * sind(prm.AzBins(n))).';
-end
-Psi_AZ = kr(H_TX, H_RX); % 
-
 Psi_R = zeros(prm.K, prm.N_R);
 for r = 1:length(prm.RangeBins)
     tau_r = 2 * prm.RangeBins(r) / prm.PropagationSpeed;
@@ -79,42 +71,38 @@ end
 Phi_R = eye(size(Psi_R, 1));
 
 nIter = 100;
-N_T_Range = 1:15;
-prm.NumUsers = 3;
-prm.SNR_dB = -10;
-NSEs_N_T = zeros(length(N_T_Range), nIter);
-
-for N_T = N_T_Range
-    prm.N_T = N_T;
-    for i = 1:nIter
-        [NSEs_N_T(N_T, i)] = genImageWrapped(prm, H_TX, H_RX, Psi_AZ, Psi_R, Phi_R);
-    end
-end
-save('NSEs_N_T', "NSEs_N_T", 'N_T_Range', 'prm');
-
-prm.N_T = 1;
-U_Range = 1:8;
-prm.SNR_dB = 0;
-NSEs_U = zeros(length(U_Range), nIter);
-
-for u = U_Range
-    prm.NumUsers = u;
-    for i = 1:nIter
-        [NSEs_U(u, i)] = genImageWrapped(prm, H_TX, H_RX, Psi_AZ, Psi_R, Phi_R);
-    end
-end
-save('NSEs_U_0SNR', 'NSEs_U', 'U_Range', 'prm');
 
 prm.N_T = 1;
 prm.NumUsers = 3;
 SNR_range = -20:5:20;
-NSEs_SNRs = zeros(length(SNR_range), nIter);
-snr_iter = 1;
-for snr = SNR_range
-    prm.SNR_dB = snr;
-    for i = 1:nIter
-        [NSEs_SNRs(snr_iter, i)] = genImageWrapped(prm, H_TX, H_RX, Psi_AZ, Psi_R, Phi_R);
+N_theta_range = [64 128 256 320];
+
+NSEs_SNRs = zeros(length(SNR_range), length(N_theta_range), nIter);
+NSEs_SNRs_SS = zeros(length(SNR_range), length(N_theta_range), nIter);
+
+theta_iter = 1;
+for N_theta = N_theta_range
+    prm.N_theta = N_theta;
+    prm.AzBins = thetaMin:(thetaMax-thetaMin)/(prm.N_theta-1):thetaMax;
+    H_TX = zeros(prm.NumBsElements, prm.N_theta);
+    H_RX = zeros(prm.NumRxElements, prm.N_theta);
+    for n = 1:prm.N_theta
+        H_TX(:, n) = exp(-1j * 2 * pi * prm.DeltaTX * (0:prm.NumBsElements-1) * sind(prm.AzBins(n))).';
+        H_RX(:, n) = exp(-1j * 2 * pi * prm.DeltaRX * (0:prm.NumRxElements-1) * sind(prm.AzBins(n))).';
     end
-    snr_iter = snr_iter+1;
+
+    Psi_AZ = kr(H_TX, H_RX); % 
+    snr_iter = 1;
+    for snr = SNR_range
+        
+        prm.SNR_dB = snr;
+        for i = 1:nIter
+            [NSEs_SNRs(snr_iter, theta_iter, i), NSEs_SNRs_SS(snr_iter, theta_iter, i)] = genImageWrapped(prm, H_TX, H_RX, Psi_AZ, Psi_R, Phi_R);
+        end
+
+        snr_iter = snr_iter+1;
+    end
+    theta_iter = theta_iter + 1;
+
 end
-save('NSEs_SNRs', "NSEs_SNRs", 'SNR_range', 'prm');
+save('NSEs_SNRs_SS_Comparison_vary_N_theta', "NSEs_SNRs", "NSEs_SNRs_SS", 'SNR_range', 'N_theta_range', 'prm');

@@ -6,7 +6,7 @@ rng(42);
 
 % % % OFDM Signal Params
 
-    prm.CenterFreq = 26e9;
+    prm.CenterFreq = 28e9;
     prm.PropagationSpeed = physconst('LightSpeed');
     prm.lam = prm.PropagationSpeed/prm.CenterFreq;
 
@@ -16,7 +16,7 @@ rng(42);
     prm.K = 12*prm.NRB;
     
     prm.NumUsers = 4; % U per RB
-    prm.N_T = 1; % number of time slots
+    prm.N_T = 3; % number of time slots
     prm.Nofdm = 14; %number of OFDM symbols per slot
     prm.MCS = 16; %modulation order
     
@@ -24,6 +24,8 @@ rng(42);
     Pr = 20; %dBm
 
     No = -174; %dBm/Hz
+
+    prm.SNR_dB = 0;
 % % % END OFDM Signal Params
 
 % % % % % Array and Channel Info
@@ -44,7 +46,7 @@ rng(42);
     
     % % % % % % % Target Construction
 %     prm.N_theta = prm.BsArraySize * prm.RxArraySize; %number of grid spots, i.e. dimension of the quantized azimuth profile
-    prm.N_theta = 24;
+    prm.N_theta = 128;
     thetaMin = prm.BsAZlim(1); thetaMax = prm.BsAZlim(2); %in Azimuth
     prm.AzBins = thetaMin:(thetaMax-thetaMin)/(prm.N_theta-1):thetaMax;
     
@@ -102,11 +104,12 @@ rng(42);
     W = repmat(eye(prm.NumRxElements), [1 1 prm.K]);
     Y_tens = zeros(prm.NumRxElements, prm.Nofdm * prm.N_T, prm.K);
     
-    for k = 1:prm.K
-        n_k = sqrt(10^(-SNR_dB_per_K / 10)) .* ... 
-            (randn([prm.NumRxElements, prm.N_T * prm.Nofdm]) + 1j * randn([prm.NumRxElements, prm.N_T * prm.Nofdm]));
-        n_k = 0;
-        Y_tens(:, :, k) = W(:, :, k) * (H_tens(:, :, k) * txGrid(:, :, k) + n_k);
+    for k = 1:2:prm.K
+        % n_k = sqrt(10^(-SNR_dB_per_K / 10)) .* ... 
+            % (randn([prm.NumRxElements, prm.N_T * prm.Nofdm]) + 1j * randn([prm.NumRxElements, prm.N_T * prm.Nofdm]));
+        % n_k = 0;
+        % Y_tens(:, :, k) = W(:, :, k) * (H_tens(:, :, k) * txGrid(:, :, k) + n_k);
+        Y_tens(:, :, k) = W(:, :, k) * awgn(H_tens(:, :, k) * txGrid(:, :, k), prm.SNR_dB, 'measured');
     end
 
 % % % Receive Processing
