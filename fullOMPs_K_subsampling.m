@@ -15,8 +15,8 @@ rng(42);
     prm.NRB = 30; % number of resource blocks
     prm.K = 12*prm.NRB;
     
-    prm.NumUsers = 4; % U per RB
-    prm.N_T = 1; % number of time slots
+    prm.NumUsers = 3; % U per RB
+    prm.N_T = 3; % number of time slots
     prm.Nofdm = 14; %number of OFDM symbols per slot
     prm.MCS = 16; %modulation order
     
@@ -84,9 +84,8 @@ rng(42);
 % % % Transmit Signal Construction
     
     %Generates baseband frequency-domain signal across freq-time-space
-    %Both a randomly precoded and ideally precoded/data structure 
-    [txGrid, F] = genFreqTxGrid(prm.NumBsElements, prm.NumUsers, prm.MCS, prm.N_T, prm.Nofdm, prm.K, H_TX); % (Nofdm * N_T) x M x K
-    
+    [txGrid] = genFreqTxGrid(prm.NumBsElements, prm.NumUsers, prm.MCS, prm.N_T, prm.Nofdm, prm.K, H_TX); % (Nofdm * N_T) x M x K
+
 % % % END Transmit Signal Construction
     
     % Rx Signal    
