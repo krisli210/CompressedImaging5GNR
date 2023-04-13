@@ -111,9 +111,11 @@ rng(42);
     numFreqSamples = length(freqSamples);
     for k = freqSamples
         Phi_AZ = kron(squeeze(txGrid(:, :, k)).', W(:, :, k));
-        [z_theta_per_K(:, k), I] = solveCS_OMP(Y_kron(:, k), Phi_AZ, Psi_AZ, 10);
-%         z_theta_per_K(:, k) = linsolve(Phi_AZ*Psi_AZ, Y_kron(:, k)); % intuitively this only works for low dim problems when it's well-posed, i.e., low angle res
-%         I = find(z_theta_per_K(:, k));
+        % [z_theta_per_K(:, k), I] = solveCS_OMP(Y_kron(:, k), Phi_AZ, Psi_AZ, 10);
+        [z_theta_per_K(:, k)] = multi_branch_matching_pursuit(Y_kron(:, k), Phi_AZ*Psi_AZ, prm.L, prm.L, 1e-20);
+        I = find(z_theta_per_K(:, k));
+        % z_theta_per_K(:, k) = linsolve(Phi_AZ*Psi_AZ, Y_kron(:, k)); % intuitively this only works for low dim problems when it's well-posed, i.e., low angle res
+        % I = find(z_theta_per_K(:, k));
         azSupport(I) = azSupport(I) | 1;
     end
 
