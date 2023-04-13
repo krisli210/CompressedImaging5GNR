@@ -111,11 +111,9 @@ rng(42);
     numFreqSamples = length(freqSamples);
     for k = freqSamples
         Phi_AZ = kron(squeeze(txGrid(:, :, k)).', W(:, :, k));
-        % [z_theta_per_K(:, k), I] = solveCS_OMP(Y_kron(:, k), Phi_AZ, Psi_AZ, 10);
-        [z_theta_per_K(:, k)] = multi_branch_matching_pursuit(Y_kron(:, k), Phi_AZ*Psi_AZ, prm.L, prm.L, 1e-20);
+%         [z_theta_per_K(:, k)] = multi_branch_matching_pursuit(Y_kron(:, k), Phi_AZ*Psi_AZ, prm.L, prm.L, 1e-20);
+        z_theta_per_K(:, k) = omp(Phi_AZ*Psi_AZ, Y_kron(:, k), prm.L, 1e-20);
         I = find(z_theta_per_K(:, k));
-        % z_theta_per_K(:, k) = linsolve(Phi_AZ*Psi_AZ, Y_kron(:, k)); % intuitively this only works for low dim problems when it's well-posed, i.e., low angle res
-        % I = find(z_theta_per_K(:, k));
         azSupport(I) = azSupport(I) | 1;
     end
 
@@ -131,7 +129,8 @@ rng(42);
     RangeAzProfile_hat = zeros(size(RangeAzProfile));
     Phi_R = eye(numFreqSamples);
     for azBin = find(azSupport)
-        [z_hat_R, I_R] = solveCS_OMP(z_theta_per_K(azBin, freqSamples).', Phi_R, Psi_R(freqSamples, :));
+%         z_hat_R = multi_branch_matching_pursuit(z_theta_per_K(azBin, freqSamples).', Psi_R(freqSamples,:), prm.L, prm.L, 1e-20);
+        z_hat_R = omp(Psi_R(freqSamples, :), z_theta_per_K(azBin, freqSamples).', 10, 1e-20);
         RangeAzProfile_hat(:, azBin) = z_hat_R;
     end
     NSE = 10*log10(norm(RangeAzProfile_hat - RangeAzProfile).^2 ./ norm(RangeAzProfile).^2);

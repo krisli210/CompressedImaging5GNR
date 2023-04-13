@@ -19,12 +19,17 @@ x_est = zeros(N, 1); % estimated input vector
 err = norm(r); % initial residual error
 
 for l = 1:L
-    % Compute inner products and select index with maximum magnitude
+    % Compute inner products
     inner_prods = abs(A'*r);
-    [~, idx] = max(inner_prods);
     
-    % Add selected index to support set
-    S = [S, idx];
+    % Sort the inner products in descending order
+    [~, idx] = sort(inner_prods, 'descend');
+    
+    % Select the top K indices from the sorted list
+    idx = idx(1:K);
+    
+    % Add selected indices to support set
+    S = union(S, idx);
     
     % Solve least-squares problem to update estimated input vector
     x_S = A(:, S)\y;
