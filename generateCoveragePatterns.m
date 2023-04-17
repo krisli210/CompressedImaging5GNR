@@ -1,7 +1,7 @@
 close all
 clear 
 
-rng(42);
+rng(44);
 
 
 % % % OFDM Signal Params
@@ -49,24 +49,41 @@ rng(42);
 figure; 
 BsArray = phased.ULA(prm.NumBsElements, prm.lam * prm.DeltaTX, 'Element', phased.IsotropicAntennaElement);
 
-prm.N_T = 1; 
+% prm.N_T = 1; 
+% prm.NumUsers = 1; % U per RB
+% [MeanPattern, F_total] = genMeanPattern(prm.NumUsers, prm.NRB, prm.N_T, patternAzBins, BsArray, H_TX);
+% % subplot(2, 2, 1);
+% polarplot(deg2rad(patternAzBins), 10*log10(MeanPattern), 'Color', 'b'); 
+% m = max(10*log10(MeanPattern));
+% % title({['$U = ', num2str(prm.NumUsers),'$'], ' ' }, 'interpreter', 'latex');
+% thetalim([-60, 60])
+% rticks([])
+% 
+% prm.N_T = 1; 
+% prm.NumUsers = 5; % U per RB
+% [MeanPattern, F_total] = genMeanPattern(prm.NumUsers, prm.NRB, prm.N_T, patternAzBins, BsArray, H_TX);
+% % subplot(2, 2, 2);
+% polarplot(deg2rad(patternAzBins), 10*log10(MeanPattern), 'Color', 'g'); 
+% m = max(10*log10(MeanPattern));
+% % title({['$U = ', num2str(prm.NumUsers),'$'], ' ' }, 'interpreter', 'latex');
+% thetalim([-60, 60])
+% rticks([])
+
+prm.N_T = 5; 
 prm.NumUsers = 1; % U per RB
 [MeanPattern, F_total] = genMeanPattern(prm.NumUsers, prm.NRB, prm.N_T, patternAzBins, BsArray, H_TX);
-subplot(1, 2, 1);
-polarplot(deg2rad(patternAzBins), 10*log10(MeanPattern)); hold on
-m = max(10*log10(MeanPattern));
-title({['$U = ', num2str(prm.NumUsers),'$'], ' ' }, 'interpreter', 'latex');
+% subplot(2, 2, 3);
+polarplot(deg2rad(patternAzBins), 10*log10(MeanPattern), 'r'); 
+% title({['$U = ', num2str(prm.NumUsers),'$'], ' ' }, 'interpreter', 'latex');
 thetalim([-60, 60])
 rticks([])
 
-prm.N_T = 1; 
-prm.NumUsers = 5; % U per RB
-[MeanPattern, F_total] = genMeanPattern(prm.NumUsers, prm.NRB, prm.N_T, patternAzBins, BsArray, H_TX);
-subplot(1, 2, 2);
-polarplot(deg2rad(patternAzBins), 10*log10(MeanPattern), 'r'); hold on
-title({['$U = ', num2str(prm.NumUsers),'$'], ' ' }, 'interpreter', 'latex');
-thetalim([-60, 60])
-rlim([0 m])
-rticks([])
-
-
+% prm.N_T = 5; 
+% prm.NumUsers = 5; % U per RB
+% [MeanPattern, F_total] = genMeanPattern(prm.NumUsers, prm.NRB, prm.N_T, patternAzBins, BsArray, H_TX);
+% % subplot(2, 2, 4);
+% polarplot(deg2rad(patternAzBins), 10*log10(MeanPattern), 'c'); 
+% m = max(10*log10(MeanPattern));
+% % title({['$U = ', num2str(prm.NumUsers),'$'], ' ' }, 'interpreter', 'latex');
+% thetalim([-60, 60])
+% rticks([])

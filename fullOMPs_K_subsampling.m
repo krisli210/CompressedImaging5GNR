@@ -1,12 +1,12 @@
 close all
 clear 
 
-rng(42);
+rng(52);
 
 
 % % % OFDM Signal Params
 
-    prm.CenterFreq = 26e9;
+    prm.CenterFreq = 28e9;
     prm.PropagationSpeed = physconst('LightSpeed');
     prm.lam = prm.PropagationSpeed/prm.CenterFreq;
 
@@ -25,14 +25,14 @@ rng(42);
 % % % % % Array and Channel Info
 
     prm.BsPos = [0; 0; 0];
-    prm.BsArraySize = 18; %BS Dimension
+    prm.BsArraySize = 16; %BS Dimension
     prm.NumBsElements = prod(prm.BsArraySize);
     prm.DeltaTX = .5; % Element spacing normalized by wavelength
     prm.BsAZlim = [-60 60];
     prm.BsELlim = [-90 0];
     
     prm.RxPos = [0; 0; 0];
-    prm.RxArraySize = 15;
+    prm.RxArraySize = 16;
     prm.DeltaRX = prm.NumBsElements * .5; % Set for virtual array 
     prm.NumRxElements = prod(prm.RxArraySize);
     prm.RxAZlim = prm.BsAZlim;
@@ -45,7 +45,7 @@ rng(42);
     prm.AzBins = thetaMin:(thetaMax-thetaMin)/(prm.N_theta-1):thetaMax;
     
     % % % % % % % Grid/Target Construction
-    prm.L = 7;
+    prm.L = 10;
     prm.rMin = 20; prm.rMax = 70;
     
     max_FSPL_dB = 10*log10((4*pi*prm.rMax/prm.lam)^-2);
@@ -93,10 +93,10 @@ rng(42);
     Y_tens = zeros(prm.NumRxElements, prm.Nofdm * prm.N_T, prm.K);
     
     for k = 1:prm.K
-        % n_k = 0;
-        % Y_tens(:, :, k) = W(:, :, k) * (H_tens(:, :, k) * txGrid(:, :, k) + n_k);
-        [Y_tens(:, :, k), var] = awgn(H_tens(:, :, k) * txGrid(:, :, k), 10, 'measured') ;
-        Y_tens(:, :, k) = W(:, :, k) * Y_tens(:, :, k);
+        n_k = 0;
+        Y_tens(:, :, k) = W(:, :, k) * (H_tens(:, :, k) * txGrid(:, :, k) + n_k);
+        % [Y_tens(:, :, k), var] = awgn(H_tens(:, :, k) * txGrid(:, :, k), 100, 'measured') ;
+        % Y_tens(:, :, k) = W(:, :, k) * Y_tens(:, :, k);
     end
 
 % % % Receive Processing
@@ -107,16 +107,16 @@ rng(42);
 
     % Az Cutting
     freqSamples = 1: (floor(prm.K / prm.N_R)) : prm.K;
-%     freqSamples = 1:prm.K;
-    numFreqSamples = length(freqSamples);
+    % freqSamples = 1:prm.K;
+    tic
     for k = freqSamples
         Phi_AZ = kron(squeeze(txGrid(:, :, k)).', W(:, :, k));
-%         [z_theta_per_K(:, k)] = multi_branch_matching_pursuit(Y_kron(:, k), Phi_AZ*Psi_AZ, prm.L, prm.L, 1e-20);
-        z_theta_per_K(:, k) = omp(Phi_AZ*Psi_AZ, Y_kron(:, k), prm.L, 1e-20);
+        A_Theta = Phi_AZ*Psi_AZ;
+        z_theta_per_K(:, k) = omp(A_Theta, Y_kron(:, k), prm.L, 1e-20);
         I = find(z_theta_per_K(:, k));
         azSupport(I) = azSupport(I) | 1;
     end
-
+    toc
     figure; 
     hold on; 
     stem(-60:120/(prm.N_theta-1):60, abs(sum(RangeAzProfile, 1)));
@@ -127,14 +127,13 @@ rng(42);
     legend({'True', 'Estimate'}, 'Location', 'best')  
     
     RangeAzProfile_hat = zeros(size(RangeAzProfile));
-    Phi_R = eye(numFreqSamples);
+    tic
     for azBin = find(azSupport)
-%         z_hat_R = multi_branch_matching_pursuit(z_theta_per_K(azBin, freqSamples).', Psi_R(freqSamples,:), prm.L, prm.L, 1e-20);
         z_hat_R = omp(Psi_R(freqSamples, :), z_theta_per_K(azBin, freqSamples).', 10, 1e-20);
         RangeAzProfile_hat(:, azBin) = z_hat_R;
     end
     NSE = 10*log10(norm(RangeAzProfile_hat - RangeAzProfile).^2 ./ norm(RangeAzProfile).^2);
-
+    toc
     figure;
 
     subplot(1, 2, 1);

@@ -72,6 +72,7 @@ p.addOptional('ncolor',[]);
 p.addOptional('typeRose','meteo'); % 'meteo' or 'default'
 p.addOptional('circlesPos',[]);
 p.addOptional('lim', []);
+p.addOptional('labelColor', 'w')
 p.parse(varargin{:});
 Ncircles = p.Results.Ncircles;
 Nspokes = p.Results.Nspokes ;
@@ -85,6 +86,7 @@ ncolor = p.Results.ncolor ;
 circPos = p.Results.circlesPos ;
 typeRose = p.Results.typeRose ;
 lim = p.Results.lim;
+labelColor = p.Results.labelColor;
 if ~isempty(circPos)
     Origin = max([min(circPos),min(R)]);
     circPos(circPos<min(R))=[];
@@ -312,7 +314,7 @@ end
                 (contourD(kk)).*sind(position),...
                 rtick,'verticalalignment','BaseLine',...
                 'horizontalAlignment', 'right',...
-                'handlevisibility','off','parent',cax, 'Color', [0 0 0]);
+                'handlevisibility','off','parent',cax, 'Color', labelColor);
             if min(round(abs(90-theta)))<5 && strcmpi(typeRose,'default'),
                 t.Position =  t.Position - [0,0.1,0];
                 t.Interpreter = 'latex';
@@ -344,7 +346,7 @@ end
             end
             
             t.Interpreter = 'latex';
-            t.Color = [0 0 0];
+            t.Color = labelColor;
             if min(round(theta))==90 && strcmpi(typeRose,'meteo'),
                 t.Position =  t.Position + [0,0.05,0];
                 clear t;
