@@ -1,17 +1,19 @@
-function [nse] = genImageWrapped_SS(prm, H_TX, Psi_AZ, Psi_R)
+function [nse] = genImageWrapped_SS_detW(prm, H_TX, Psi_AZ, Psi_R)
     [H_tens, RangeAzProfile] = genGridChannel(prm);
     
     [txGrid] = genFreqTxGrid(prm.NumBsElements, prm.NumUsers, prm.MCS, prm.N_T, prm.Nofdm, prm.K, H_TX); % (Nofdm * N_T) x M x K
 
 
     % Rx Signal
-    W = repmat(eye(prm.NumRxElements), [1 1 prm.K]);
+    % W = repmat(eye(prm.NumRxElements), [1 1 prm.K]);
+    W = exp(-1j*2*pi*sind(randi(359, ([prm.NumRxElements prm.NumRxElements prm.K]))));
+
     Y_tens = zeros(prm.NumRxElements, prm.Nofdm * prm.N_T, prm.K);
     
     freqSamples = 1 : (floor(prm.K / prm.N_R)) : prm.K;
     for k = freqSamples
-        % Y_tens(:, :, k) = W(:, :, k) * awgn(H_tens(:, :, k) * txGrid(:, :, k), prm.SNR_dB, 'measured');
-        Y_tens(:, :, k) = W(:, :, k) * H_tens(:, :, k) * txGrid(:, :, k); 
+        Y_tens(:, :, k) = W(:, :, k) * awgn(H_tens(:, :, k) * txGrid(:, :, k), prm.SNR_dB, 'measured');
+        % Y_tens(:, :, k) = W(:, :, k) * H_tens(:, :, k) * txGrid(:, :, k); 
     end
     
     % % % Receive Processing

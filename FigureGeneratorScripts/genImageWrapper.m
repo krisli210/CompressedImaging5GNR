@@ -44,7 +44,7 @@ thetaMin = prm.BsAZlim(1); thetaMax = prm.BsAZlim(2); %in Azimuth
 prm.AzBins = thetaMin:(thetaMax-thetaMin)/(prm.N_theta-1):thetaMax;
 
 % % % % % % % Grid/Target Construction
-prm.L = 5;
+prm.L = 10;
 prm.rMin = 20; prm.rMax = 70;
 
 max_FSPL_dB = 10*log10((4*pi*prm.rMax/prm.lam)^-2);
@@ -78,43 +78,15 @@ for r = 1:length(prm.RangeBins)
 end
 Phi_R = eye(size(Psi_R, 1));
 
-nIter = 100;
-N_T_Range = 1:15;
-prm.NumUsers = 3;
-prm.SNR_dB = -10;
-NSEs_N_T = zeros(length(N_T_Range), nIter);
-
-for N_T = N_T_Range
-    prm.N_T = N_T;
-    for i = 1:nIter
-        [NSEs_N_T(N_T, i)] = genImageWrapped(prm, H_TX, H_RX, Psi_AZ, Psi_R, Phi_R);
-    end
-end
-save('NSEs_N_T', "NSEs_N_T", 'N_T_Range', 'prm');
-
-prm.N_T = 1;
-U_Range = 1:8;
-prm.SNR_dB = 0;
-NSEs_U = zeros(length(U_Range), nIter);
-
-for u = U_Range
-    prm.NumUsers = u;
-    for i = 1:nIter
-        [NSEs_U(u, i)] = genImageWrapped(prm, H_TX, H_RX, Psi_AZ, Psi_R, Phi_R);
-    end
-end
-save('NSEs_U_0SNR', 'NSEs_U', 'U_Range', 'prm');
-
-prm.N_T = 1;
-prm.NumUsers = 3;
+nIters = 1000;
 SNR_range = -20:5:20;
-NSEs_SNRs = zeros(length(SNR_range), nIter);
-snr_iter = 1;
-for snr = SNR_range
-    prm.SNR_dB = snr;
-    for i = 1:nIter
-        [NSEs_SNRs(snr_iter, i)] = genImageWrapped(prm, H_TX, H_RX, Psi_AZ, Psi_R, Phi_R);
+container = zeros(3, length(SNR_range), nIters);
+for SNR_ind = 1:length(SNR_range)
+    prm.SNR_dB = SNR_range(SNR_ind);
+      
+    for i = 1:nIters
+        container(1, SNR_ind, i) = genImageWrapped_SS_randW(prm, H_TX, Psi_AZ, Psi_R, 'eye');
+        container(2, SNR_ind, i) = genImageWrapped_SS_randW(prm, H_TX, Psi_AZ, Psi_R, 'ffteye');
+        container(3, SNR_ind, i) = genImageWrapped_SS_randW(prm, H_TX, Psi_AZ, Psi_R, 'rand');
     end
-    snr_iter = snr_iter+1;
 end
-save('NSEs_SNRs', "NSEs_SNRs", 'SNR_range', 'prm');
