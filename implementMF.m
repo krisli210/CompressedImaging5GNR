@@ -18,6 +18,7 @@ rng(52);
     prm.NumUsers = 3; % U per RB
     prm.N_T = 3; % number of time slots
     prm.Nofdm = 14; %number of OFDM symbols per slot
+    prm.N_s = prm.N_T * prm.Nofdm;
     prm.MCS = 16; %modulation order
     
 % % % END OFDM Signal Params
@@ -32,7 +33,7 @@ rng(52);
     prm.BsELlim = [-90 0];
     
     prm.RxPos = [0; 0; 0];
-    prm.RxArraySize = 15;
+    prm.RxArraySize = 16;
     prm.DeltaRX = prm.NumBsElements * .5; % Set for virtual array 
     prm.NumRxElements = prod(prm.RxArraySize);
     prm.RxAZlim = prm.BsAZlim;
@@ -71,11 +72,12 @@ rng(52);
     % Spatial Dictionary Construction
     H_TX = zeros(prm.NumBsElements, prm.N_theta);
     H_RX = zeros(prm.NumRxElements, prm.N_theta);
+    %Remove the norm 
     for n = 1:prm.N_theta
         H_TX(:, n) = exp(-1j * 2 * pi * prm.DeltaTX * (0:prm.NumBsElements-1) * sind(prm.AzBins(n))).';
         H_RX(:, n) = exp(-1j * 2 * pi * prm.DeltaRX * (0:prm.NumRxElements-1) * sind(prm.AzBins(n))).';
     end
-    Psi_AZ_unnormalized = kr(H_TX, H_RX); % 
+    Psi_AZ = kr(H_TX, H_RX); % 
 
     Psi_R = zeros(prm.K, prm.N_R);
     for r = 1:length(prm.RangeBins)
@@ -90,24 +92,28 @@ rng(52);
     [txGrid] = genFreqTxGrid(prm.NumBsElements, prm.NumUsers, prm.MCS, prm.N_T, prm.Nofdm, prm.K, H_TX, prm.Pt_W); % (Nofdm * N_T) x M x K
 
 % % % END Transmit Signal Construction
-    
+    prm.SNR_dB = 0;
+    prm.SNR_lin = 10^(prm.SNR_dB/10);
+    H_hat_tens = zeros(prm.NumRxElements, prm.NumBsElements, prm.K);
     % Rx Signal    
-    W = zeros(prm.NumRxElements, prm.NumRxElements, prm.K);
-    Y_tens = zeros(prm.NumRxElements, prm.Nofdm * prm.N_T, prm.K);
     freqSamples = 1: (floor(prm.K / prm.N_R)) : prm.K;
     for k = freqSamples
-        
-        W = repmat(eye(prm.NumRxElements), [1 1 prm.K]);
-        
-        
-        n_k = 0;
-        Y_tens(:, :, k) = W(:, :, k) * (H_tens(:, :, k) * txGrid(:, :, k) + n_k);
-        % [Y_tens(:, :, k), var] = awgn(H_tens(:, :, k) * txGrid(:, :, k), 0, 'measured') ;
-        % Y_tens(:, :, k) = W(:, :, k) * Y_tens(:, :, k);
-    end
+        X_k = txGrid(:, :, k); 
+        W_k = pinv(X_k);
+        % W_k = inv(X_k'*X_k)*X_k';
+        Y_k = zeros(prm.NumRxElements, prm.N_s);
 
+        P_r = prm.Pt_W / a(k)^2; % norms defnied in loyka #2 
+        sigma_sq = P_r / prm.SNR_lin;
+        for n_s = 1:prm.N_s
+            n_k = sqrt(prm.NumRxElements * sigma_sq /2) * (randn(prm.NumRxElements, 1) + 1j*randn(prm.NumRxElements, 1));
+            Y_k(:, n_s) = H_tens(:, :, k) * X_k(:, n_s) + n_k;
+        end
+        
+        % Y_k = H_tens(:, :, k) * X_k;
+        H_hat_tens(:, :, k) = Y_k * W_k;
+    end
 % % % Receive Processing
-    Y_kron = reshape(Y_tens, [prm.NumRxElements * prm.N_T * prm.Nofdm, prm.K]);
     z_theta_per_K = zeros(prm.N_theta, prm.K);
 
     azSupport = zeros(1, prm.N_theta);
@@ -115,12 +121,10 @@ rng(52);
     % Az Cutting
     % freqSamples = 1:prm.K;
     for k = freqSamples
-        X_k = squeeze(txGrid(:, :, k));
-        Psi_AZ_k = a(k)*Psi_AZ_unnormalized;
-        Phi_AZ_k = kron(X_k.', W(:, :, k));
-        A_Theta_k = Phi_AZ_k*Psi_AZ_k;
-        % A_Theta = kr(X_k.' * H_TX, W(:, :, k) * H_RX);
-        z_theta_per_K(:, k) = omp(A_Theta_k, Y_kron(:, k), prm.L, 1e-20);
+        vec_H_hat_k = reshape(H_hat_tens(:, :, k), [prm.NumRxElements * prm.NumBsElements, 1]);
+        A_Theta_k = a(k)*Psi_AZ;
+        z_theta_per_K(:, k) = omp(A_Theta_k,vec_H_hat_k, prm.L, 1e-20);
+        % z_theta_per_K(:, k) = pinv(A_Theta)*vec_H_hat_k;
         I = find(z_theta_per_K(:, k));
         azSupport(I) = azSupport(I) | 1;
     end
@@ -138,7 +142,8 @@ rng(52);
         z_hat_R = omp(Psi_R(freqSamples, :), z_theta_per_K(azBin, freqSamples).', 10, 1e-20);
         RangeAzProfile_hat(:, azBin) = z_hat_R;
     end
-    NSE = 10*log10(norm(RangeAzProfile_hat - RangeAzProfile).^2 ./ norm(RangeAzProfile).^2);
+    NSE = 10*log10(norm(RangeAzProfile_hat - RangeAzProfile, 'fro').^2 ./ ...
+        norm(RangeAzProfile, 'fro').^2);
     figure;
 
     subplot(1, 2, 1);

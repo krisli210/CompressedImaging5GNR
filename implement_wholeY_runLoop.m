@@ -18,6 +18,7 @@ rng(52);
     prm.NumUsers = 3; % U per RB
     prm.N_T = 3; % number of time slots
     prm.Nofdm = 14; %number of OFDM symbols per slot
+    prm.N_s = prm.N_T*prm.Nofdm;
     prm.MCS = 16; %modulation order
     
 % % % END OFDM Signal Params
@@ -92,35 +93,39 @@ rng(52);
 % % % END Transmit Signal Construction
     
     % Rx Signal    
+    prm.SNR_dB = -60;
+    prm.SNR_lin = 10^(prm.SNR_dB/10);
+
     W = zeros(prm.NumRxElements, prm.NumRxElements, prm.K);
     Y_tens = zeros(prm.NumRxElements, prm.Nofdm * prm.N_T, prm.K);
     freqSamples = 1: (floor(prm.K / prm.N_R)) : prm.K;
-    for k = freqSamples
-        
-        W = repmat(eye(prm.NumRxElements), [1 1 prm.K]);
-        
-        
-        n_k = 0;
-        Y_tens(:, :, k) = W(:, :, k) * (H_tens(:, :, k) * txGrid(:, :, k) + n_k);
-        % [Y_tens(:, :, k), var] = awgn(H_tens(:, :, k) * txGrid(:, :, k), 0, 'measured') ;
-        % Y_tens(:, :, k) = W(:, :, k) * Y_tens(:, :, k);
-    end
 
-% % % Receive Processing
-    Y_kron = reshape(Y_tens, [prm.NumRxElements * prm.N_T * prm.Nofdm, prm.K]);
     z_theta_per_K = zeros(prm.N_theta, prm.K);
-
     azSupport = zeros(1, prm.N_theta);
-
-    % Az Cutting
-    % freqSamples = 1:prm.K;
     for k = freqSamples
-        X_k = squeeze(txGrid(:, :, k));
-        Psi_AZ_k = a(k)*Psi_AZ_unnormalized;
-        Phi_AZ_k = kron(X_k.', W(:, :, k));
-        A_Theta_k = Phi_AZ_k*Psi_AZ_k;
-        % A_Theta = kr(X_k.' * H_TX, W(:, :, k) * H_RX);
-        z_theta_per_K(:, k) = omp(A_Theta_k, Y_kron(:, k), prm.L, 1e-20);
+        X_k = txGrid(:, :, k);
+        
+        % SNR = (Pt / a_k^2) / sigma^2 -> sigma^2 = 
+        Y_k = zeros(prm.NumRxElements, prm.N_s);
+        sigma_sq = prm.Pt_W / (a(k) * prm.SNR_lin);
+        for n_s = 1:prm.N_s
+            n_k = sqrt(sigma_sq /2) * (randn(prm.NumRxElements, 1) + 1j*randn(prm.NumRxElements, 1));
+            n_k = n_k;
+            Y_k(:, n_s) = H_tens(:, :, k) * X_k(:, n_s) + n_k;
+        end
+        
+        W_MF = X_k';
+        W_MMSE = pinv(X_k);
+        
+        H_hat_MF = Y_k * W_MF;
+        H_hat_MMSE = Y_k * W_MMSE;
+
+        Y_kron_k = reshape(Y_k, [prm.NumRxElements * prm.N_T * prm.Nofdm, 1]);
+        
+        Psi_AZ_normalized = a(k) * Psi_AZ_unnormalized;
+        A_Theta_k = kron(X_k.', eye(prm.NumRxElements)) * Psi_AZ_normalized;
+        
+        z_theta_per_K(:, k) = omp( A_Theta_k, Y_kron_k, prm.L, 1e-20);
         I = find(z_theta_per_K(:, k));
         azSupport(I) = azSupport(I) | 1;
     end

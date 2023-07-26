@@ -1,4 +1,4 @@
-function [H_tens, RangeAzProfile, ScatPosPol, threshold] = genGridChannel(prm)
+function [H_tens, RangeAzProfile, ScatPosPol, threshold, a] = genGridChannel(prm)
     % H _tens output as N x M x K
     % RangeAzProfile as N_R x N_theta
     % ScatPosPol as 3 x L
@@ -39,6 +39,12 @@ function [H_tens, RangeAzProfile, ScatPosPol, threshold] = genGridChannel(prm)
             H_tens(:, :, k) = H_tens(:, :, k) + PL*ScatCoeff(l)*exp(-1j * 2*pi * ( (k*prm.Delta_f*tau_r) + tau_n_m) ); % Is the az-induced delay scaled by freq? - NO
         end
     end
-
-    threshold = complex(1, 1) ./ sqrt(2) * (4*pi* 2 * (prm.rMax+10)/prm.lam)^-2; % Threshold is given as a unit reflector past max range
+    a = zeros(1, prm.K);
+    for k = 1:prm.K
+        % subcarrier wise normalization - poorly optimized sorry
+        a(k) = sqrt(prm.NumBsElements / norm(H_tens(:, :, k), 'fro')^2);
+        H_tens(:, :, k) = a(k)*H_tens(:, :, k); % ||H||_F^2 = M as #2 from "On physically-based ..."
+    end
+    % H_tens = H_tens ./ sqrt(prm.NumBsElements * prm.NumRxElements);
+    threshold = complex(1, 1) ./ sqrt(2) * (4*pi* 2 * (prm.rMax+10)/prm.lam)^-2; % Threshold is given as a unit reflector past max range purely for the sake of producing the image
 end

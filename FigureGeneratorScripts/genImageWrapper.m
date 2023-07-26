@@ -24,14 +24,14 @@ prm.SNR_dB = -10; % Defined as the receive signal power / noise variance
 % % % % % Array and Channel Info
 
 prm.BsPos = [0; 0; 0];
-prm.BsArraySize = 18; %BS Dimension
+prm.BsArraySize = 16; %BS Dimension
 prm.NumBsElements = prod(prm.BsArraySize);
 prm.DeltaTX = .5; % Element spacing normalized by wavelength
 prm.BsAZlim = [-60 60];
 prm.BsELlim = [-90 0];
 
 prm.RxPos = [0; 0; 0];
-prm.RxArraySize = 15;
+prm.RxArraySize = 16;
 prm.DeltaRX = prm.NumBsElements * .5; % Set for virtual array 
 prm.NumRxElements = prod(prm.RxArraySize);
 prm.RxAZlim = prm.BsAZlim;
@@ -39,12 +39,12 @@ prm.RxELlim = [-90 0];
 
 % % % % % % % Target Construction
 %     prm.N_theta = prm.BsArraySize * prm.RxArraySize; %number of grid spots, i.e. dimension of the quantized azimuth profile
-prm.N_theta = 128;
+prm.N_theta = 256;
 thetaMin = prm.BsAZlim(1); thetaMax = prm.BsAZlim(2); %in Azimuth
 prm.AzBins = thetaMin:(thetaMax-thetaMin)/(prm.N_theta-1):thetaMax;
 
 % % % % % % % Grid/Target Construction
-prm.L = 10;
+prm.L = 50;
 prm.rMin = 20; prm.rMax = 70;
 
 max_FSPL_dB = 10*log10((4*pi*prm.rMax/prm.lam)^-2);
