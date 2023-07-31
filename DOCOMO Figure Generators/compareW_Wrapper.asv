@@ -16,7 +16,7 @@ rng(52);
     prm.K = 12*prm.NRB;
     
     prm.NumUsers = 3; % U per RB
-    prm.N_T = 3; % number of time slots
+    prm.N_T = 1; % number of time slots
     prm.Nofdm = 14; %number of OFDM symbols per slot
     prm.N_s = prm.N_T * prm.Nofdm;
     prm.MCS = 16; %modulation order
@@ -90,8 +90,8 @@ rng(52);
     prm.Pt_dBm = 20;
     prm.Pt_W = 10^(prm.Pt_dBm/10)*1e-3; % Watts
     
-    nIters = 1000;
-    SNR_dB_range = 100;
+    nIters = 100;
+    SNR_dB_range = -30:5:30;
     SNR_lin_range = 10.^(SNR_dB_range./10);
     container = zeros(3, length(SNR_dB_range), nIters);
     for SNR_ind = 1:length(SNR_dB_range)
@@ -103,4 +103,4 @@ rng(52);
              container(3, SNR_ind, i)] = compareW_Wrapped(prm, H_TX, H_RX, Psi_AZ, Psi_R);
         end
     end
-    
+    save('compareW', container, SM)

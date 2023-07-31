@@ -42,8 +42,8 @@ function [H_tens, RangeAzProfile, ScatPosPol, threshold, a] = genGridChannel(prm
     a = zeros(1, prm.K);
     for k = 1:prm.K
         % subcarrier wise normalization - poorly optimized sorry
-        a(k) = sqrt(prm.NumBsElements / norm(H_tens(:, :, k), 'fro')^2);
-        H_tens(:, :, k) = a(k)*H_tens(:, :, k); % ||H||_F^2 = M as #2 from "On physically-based ..."
+        a(k) = sqrt(prm.NumRxElements * prm.NumBsElements / norm(H_tens(:, :, k), 'fro')^2);
+%         H_tens(:, :, k) = a(k)*H_tens(:, :, k); % ||H||_F^2 = M as #2 from "On physically-based ..."
     end
     % H_tens = H_tens ./ sqrt(prm.NumBsElements * prm.NumRxElements);
     threshold = complex(1, 1) ./ sqrt(2) * (4*pi* 2 * (prm.rMax+10)/prm.lam)^-2; % Threshold is given as a unit reflector past max range purely for the sake of producing the image

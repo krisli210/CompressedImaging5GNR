@@ -89,74 +89,18 @@ rng(52);
     %Generates baseband frequency-domain signal across freq-time-space
     prm.Pt_dBm = 20;
     prm.Pt_W = 10^(prm.Pt_dBm/10)*1e-3; % Watts
-    [txGrid] = genFreqTxGrid(prm.NumBsElements, prm.NumUsers, prm.MCS, prm.N_T, prm.Nofdm, prm.K, H_TX, prm.Pt_W); % (Nofdm * N_T) x M x K
-
-% % % END Transmit Signal Construction
-    prm.SNR_dB = 10;
-    prm.SNR_lin = 10^(prm.SNR_dB/10);
-    H_hat_tens = zeros(prm.NumRxElements, prm.NumBsElements, prm.K);
-    % Rx Signal    
-    freqSamples = 1: (floor(prm.K / prm.N_R)) : prm.K;
-    for k = freqSamples
-        X_k = txGrid(:, :, k); 
-        W_k = pinv(X_k);
-%         W_k = X_k';
-        % W_k = inv(X_k'*X_k)*X_k';
-        Y_k = zeros(prm.NumRxElements, prm.N_s);
-        
-        P_r = prm.Pt_W / a(k)^2; % norms defnied in loyka #2 
-        sigma_sq = P_r / (prm.SNR_lin * prm.NumRxElements);
-        for n_s = 1:prm.N_s
-            n_k = sqrt(sigma_sq/2) * (randn(prm.NumRxElements, 1) + 1j*randn(prm.NumRxElements, 1));
-            Y_k(:, n_s) = H_tens(:, :, k) * X_k(:, n_s) + n_k;
+    
+    nIters = 100;
+    SNR_dB_range = -30:5:30;
+    SNR_lin_range = 10.^(SNR_dB_range./10);
+    container = zeros(3, length(SNR_dB_range), nIters);
+    for SNR_ind = 1:length(SNR_dB_range)
+        prm.SNR_dB = SNR_dB_range(SNR_ind);
+        prm.SNR_lin = SNR_lin_range(SNR_ind);
+        for i = 1:nIters
+            [container(1, SNR_ind, i), ...
+             container(2, SNR_ind, i), ...
+             container(3, SNR_ind, i)] = compareW_Wrapped(prm, H_TX, H_RX, Psi_AZ, Psi_R);
         end
-        
-        % Y_k = H_tens(:, :, k) * X_k;
-        H_hat_tens(:, :, k) = Y_k * W_k;
     end
-% % % Receive Processing
-    z_theta_per_K = zeros(prm.N_theta, prm.K);
-
-    azSupport = zeros(1, prm.N_theta);
-
-    % Az Cutting
-    % freqSamples = 1:prm.K;
-    for k = freqSamples
-        vec_H_hat_k = reshape(H_hat_tens(:, :, k), [prm.NumRxElements * prm.NumBsElements, 1]);
-%         A_Theta_k = a(k)*Psi_AZ;
-        A_Theta_k = Psi_AZ;
-        z_theta_per_K(:, k) = omp(A_Theta_k,vec_H_hat_k, prm.L, 1e-20);
-        % z_theta_per_K(:, k) = pinv(A_Theta)*vec_H_hat_k;
-        I = find(z_theta_per_K(:, k));
-        azSupport(I) = azSupport(I) | 1;
-    end
-    figure; 
-    hold on; 
-    stem(-60:120/(prm.N_theta-1):60, abs(sum(RangeAzProfile, 1)));
-    stem(-60:120/(prm.N_theta-1):60, mean(abs(z_theta_per_K(:, 1)), 2), '--x');
-    xlabel('\theta');
-    ylabel('$|\hat{\mathbf{z}}_{\Theta}|$', 'Interpreter','latex');
-    title('Noisy Azimuth Profile')
-    legend({'True', 'Estimate'}, 'Location', 'best')  
-    
-    RangeAzProfile_hat = zeros(size(RangeAzProfile));
-    for azBin = find(azSupport)
-        z_hat_R = omp(Psi_R(freqSamples, :), z_theta_per_K(azBin, freqSamples).', 10, 1e-20);
-        RangeAzProfile_hat(:, azBin) = z_hat_R;
-    end
-    NSE = 10*log10(norm(RangeAzProfile_hat - RangeAzProfile, 'fro').^2 ./ ...
-        norm(RangeAzProfile, 'fro').^2);
-    figure;
-
-    subplot(1, 2, 1);
-    [h, c, lim] = polarPcolor(prm.RangeBins, prm.AzBins, 10*log10(abs(RangeAzProfile).^2).', ...
-        'typerose', 'default', 'labelR', 'r [m]');
-    c.Label.String = 'Measured RCS [dB]';
-    sgtitle({'True (L) vs. Estimate (R)', ...
-    ['NSE = ' ' $\frac{||\hat{z} - z||^2}{||z||^2} = $' num2str(NSE) ' [dB]']}, ...
-    'interpreter', 'latex'); 
-    
-    subplot(1, 2, 2);
-    [h, c_hat, lim] = polarPcolor(prm.RangeBins, prm.AzBins, 10*log10(abs(RangeAzProfile_hat).^2).', ...
-        'typerose', 'default', 'labelR', 'r [m]', 'lim', lim);
-    c_hat.Label.String = 'Measured RCS [dB]';
+    save('compareW', container, SM)

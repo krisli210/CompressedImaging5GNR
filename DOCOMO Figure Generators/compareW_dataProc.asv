@@ -1,0 +1,17 @@
+f = load('compareW.mat');
+
+container = f.container;
+SNR_range = SNR_dB_range;
+
+figure; hold on;
+for i = 1:3
+    curr_data = container(i, :, :);
+    mean_NSE_dB = 10*log10(mean(curr_data, 2));
+    plot(SNR_range, mean_NSE_dB, '-x');
+end
+
+xlabel('Per-receiver SNR \gamma')
+ylabel('Normalized Squared Error')
+legend({'Whole Data', 'Matched Filter', 'MMSE'}, 'Location','best');
+
+title('Comparison of Imaging Post-Processing')

@@ -19,10 +19,11 @@ function [NSE_Y, NSE_MF, NSE_MMSE] = compareW_Wrapped(prm, H_TX, H_RX, Psi_AZ, P
         
         % SNR = (Pt / a_k^2) / sigma^2 -> sigma^2 = 
         Y_k = zeros(prm.NumRxElements, prm.N_s);
-        sigma_sq = prm.Pt_W / (a(k) * prm.SNR_lin);
+
+        P_r = prm.Pt_W / a(k)^2;
+        sigma_sq = P_r / (prm.SNR_lin * prm.NumRxElements);
         for n_s = 1:prm.N_s
             n_k = sqrt(sigma_sq /2) * (randn(prm.NumRxElements, 1) + 1j*randn(prm.NumRxElements, 1));
-            n_k = n_k + n_k';
             Y_k(:, n_s) = H_tens(:, :, k) * X_k(:, n_s) + n_k;
         end
         
@@ -34,7 +35,9 @@ function [NSE_Y, NSE_MF, NSE_MMSE] = compareW_Wrapped(prm, H_TX, H_RX, Psi_AZ, P
 
         Y_kron_k = reshape(Y_k, [prm.NumRxElements * prm.N_T * prm.Nofdm, 1]);
         
-        Psi_AZ_normalized = a(k) * Psi_AZ;
+%         Psi_AZ_normalized = a(k) * Psi_AZ;
+        Psi_AZ_normalized = Psi_AZ;
+
         A_Theta_k = kron(X_k.', eye(prm.NumRxElements)) * Psi_AZ_normalized;
         
         z_theta_per_K_wholeY(:, k) = omp( A_Theta_k, Y_kron_k, prm.L, 1e-20);
