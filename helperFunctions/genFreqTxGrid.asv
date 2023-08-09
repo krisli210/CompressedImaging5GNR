@@ -11,7 +11,7 @@ function [txGrid, txAngleRecord] = genFreqTxGrid(M, U, MCS, N_T, Nofdm, K, txCod
 
     % Loop over subcarriers and slots because idk how to tensorize this
     % txCodebook = txCodebook(:, 1:200);
-    % txCodebook = txCodebook(:, 128);
+    % txCodebook = txCodebook(:, 5);
     txAngleRecord = zeros(N_T, K, U); % Indices in H_RX
     for n_T = 1:N_T
         txAngles = randperm(size(txCodebook, 2), U); % Precoder changes per slot

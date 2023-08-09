@@ -1,7 +1,7 @@
 close all
 clear 
 
-rng(52);
+rng(42);
 
 
 % % % OFDM Signal Params
@@ -97,10 +97,12 @@ rng(52);
     H_hat_tens = zeros(prm.NumRxElements, prm.NumBsElements, prm.K);
     % Rx Signal    
     freqSamples = 1: (floor(prm.K / prm.N_R)) : prm.K;
+    % norms = zeros(1, prm.K);
     for k = freqSamples
         X_k = txGrid(:, :, k); 
+        % norms(k) = norm(X_k, 'fro')^2;
         W_k = pinv(X_k);
-%         W_k = X_k';
+        % W_k = X_k';
         % W_k = inv(X_k'*X_k)*X_k';
         Y_k = zeros(prm.NumRxElements, prm.N_s);
         
@@ -114,6 +116,7 @@ rng(52);
         % Y_k = H_tens(:, :, k) * X_k;
         H_hat_tens(:, :, k) = Y_k * W_k;
     end
+    % mean(abs(norms(norms > 0)))
 % % % Receive Processing
     z_theta_per_K = zeros(prm.N_theta, prm.K);
 

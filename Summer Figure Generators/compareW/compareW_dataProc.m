@@ -1,4 +1,4 @@
-f = load('compareW_1000_iters.mat');
+f = load('compareW_1000_iters_NT_3.mat');
 
 container = f.container;
 SNR_dB_range = f.SNR_dB_range;
@@ -15,4 +15,4 @@ ylabel('Normalized Squared Error [dB]','Interpreter', 'latex')
 legend({'Whole Data', 'Matched Filter', 'MMSE'}, 'Location','best', 'FontSize', 14);
 grid on;
 
-title({'Comparison of Imaging Post-Processing', '$N_T = 1; L =30, \delta_\Theta=.47^\circ$'}, 'interpreter', 'latex');
+title({'Comparison of Imaging Post-Processing', '$N_T = 3; L =30, \delta_\Theta=.47^\circ$'}, 'interpreter', 'latex');

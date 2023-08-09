@@ -1,7 +1,7 @@
 close all
 clear 
 
-rng(52);
+rng(32);
 
 
 % % % OFDM Signal Params
@@ -93,7 +93,7 @@ rng(52);
 % % % END Transmit Signal Construction
     
     % Rx Signal    
-    prm.SNR_dB = -20;
+    prm.SNR_dB = 10;
     prm.SNR_lin = 10^(prm.SNR_dB/10);
 
     W = zeros(prm.NumRxElements, prm.NumRxElements, prm.K);
@@ -114,12 +114,6 @@ rng(52);
             n_k = sqrt(sigma_sq /2) * (randn(prm.NumRxElements, 1) + 1j*randn(prm.NumRxElements, 1));
             Y_k(:, n_s) = H_tens(:, :, k) * X_k(:, n_s) + n_k;
         end
-        
-        W_MF = X_k';
-        W_MMSE = pinv(X_k);
-        
-        H_hat_MF = Y_k * W_MF;
-        H_hat_MMSE = Y_k * W_MMSE;
 
         Y_kron_k = reshape(Y_k, [prm.NumRxElements * prm.N_T * prm.Nofdm, 1]);
         

@@ -93,14 +93,16 @@ rng(52);
     nIters = 1000;
     SNR_dB_range = -30:5:30;
     SNR_lin_range = 10.^(SNR_dB_range./10);
-    container = zeros(3, length(SNR_dB_range), nIters);
+    U_range = 1:5:15;
+    container = zeros(length(U_range), length(SNR_dB_range), nIters);
     for SNR_ind = 1:length(SNR_dB_range)
         prm.SNR_dB = SNR_dB_range(SNR_ind);
         prm.SNR_lin = SNR_lin_range(SNR_ind);
-        for i = 1:nIters
-            [container(1, SNR_ind, i), ...
-             container(2, SNR_ind, i), ...
-             container(3, SNR_ind, i)] = compareW_Wrapped(prm, H_TX, H_RX, Psi_AZ, Psi_R);
+        for U_ind = 1:length(U_range)
+            prm.NumUsers = U_range(U_ind);
+            for i = 1:nIters
+                container(U_ind, SNR_ind, i) = compareU_Wrapped(prm, H_TX, H_RX, Psi_AZ, Psi_R);
+            end
         end
     end
-    save('compareW_1000_iters', 'container', 'SNR_dB_range');
+    save('compareU_1000_iters_NT_1', 'container', 'U_range', 'SNR_dB_range');
