@@ -12,10 +12,12 @@ rng(42);
 
     prm.Delta_f = 120*1e3; % SCS in KHz
     
-    prm.NRB = 30; % number of resource blocks
+    prm.NRB = 60; % number of resource blocks
     prm.K = 12*prm.NRB;
     
     prm.NumUsers = 3; % U per RB
+    prm.NumVirtualUsers = 5; % V per RB;
+    prm.alpha = 1; % Power scaling. 
     prm.N_T = 1; % number of time slots
     prm.Nofdm = 14; %number of OFDM symbols per slot
     prm.N_s = prm.N_T*prm.Nofdm;
@@ -33,7 +35,7 @@ rng(42);
     prm.BsELlim = [-90 0];
     
     prm.RxPos = [0; 0; 0];
-    prm.RxArraySize = 15;
+    prm.RxArraySize = 16;
     prm.DeltaRX = prm.NumBsElements * .5; % Set for virtual array 
     prm.NumRxElements = prod(prm.RxArraySize);
     prm.RxAZlim = prm.BsAZlim;
@@ -41,7 +43,7 @@ rng(42);
     
     % % % % % % % Target Construction
 %     prm.N_theta = prm.BsArraySize * prm.RxArraySize; %number of grid spots, i.e. dimension of the quantized azimuth profile
-    prm.N_theta = 256;
+    prm.N_theta = 128;
     thetaMin = prm.BsAZlim(1); thetaMax = prm.BsAZlim(2); %in Azimuth
     prm.AzBins = thetaMin:(thetaMax-thetaMin)/(prm.N_theta-1):thetaMax;
 
@@ -84,18 +86,18 @@ rng(42);
     end
 % % % Transmit Signal Construction
     % Generate the user location distribution
-    [~, theta_dist_cum] = getUserDistribution(prm.N_theta, prm.AzBins, 'uniform');
-
+    [theta_dist, theta_dist_cum, theta_dist_v, theta_dist_cum_v] = getUserDistribution(prm.N_theta, prm.AzBins, 'custom bimodal');
+    
     %Generates baseband frequency-domain signal across freq-time-space
     prm.Pt_dBm = 20;
     prm.Pt_W = 10^(prm.Pt_dBm/10)*1e-3; % Watts
     % [txGrid] = genFreqTxGrid(prm.NumBsElements, prm.NumUsers, prm.MCS, prm.N_T, prm.Nofdm, prm.K, H_TX, prm.Pt_W); % (Nofdm * N_T) x M x K
-    [txGrid] = genAngleDefFreqTxGrid(prm.NumBsElements, prm.NumUsers, prm.MCS, ...
-                prm.N_T, prm.Nofdm, prm.K, H_TX, prm.Pt_W, theta_dist_cum);
+    [txGrid, powerLog, userAngleIndLog] = genAngleDefFreqTxGrid_v2(prm.NumBsElements, prm.NumUsers, prm.NumVirtualUsers, prm.alpha, prm.MCS, ...
+                prm.N_T, prm.Nofdm, prm.K, H_TX, prm.Pt_W, theta_dist_cum, theta_dist_cum_v);
 % % % END Transmit Signal Construction
     
     % Rx Signal    
-    prm.SNR_dB = 10;
+    prm.SNR_dB = 20;
     prm.SNR_lin = 10^(prm.SNR_dB/10);
 
     W = zeros(prm.NumRxElements, prm.NumRxElements, prm.K);
@@ -124,14 +126,14 @@ rng(42);
         I = find(z_theta_per_K(:, k));
         azSupport(I) = azSupport(I) | 1;
     end
-    figure; 
-    hold on; 
-    stem(-60:120/(prm.N_theta-1):60, abs(sum(RangeAzProfile, 1)));
-    stem(-60:120/(prm.N_theta-1):60, mean(abs(z_theta_per_K(:, 1)), 2), '--x');
-    xlabel('\theta');
-    ylabel('$|\hat{\mathbf{z}}_{\Theta}|$', 'Interpreter','latex');
-    title('Noisy Azimuth Profile')
-    legend({'True', 'Estimate'}, 'Location', 'best')  
+    % figure; 
+    % hold on; 
+    % stem(-60:120/(prm.N_theta-1):60, abs(sum(RangeAzProfile, 1)));
+    % stem(-60:120/(prm.N_theta-1):60, mean(abs(z_theta_per_K(:, 1)), 2), '--x');
+    % xlabel('\theta');
+    % ylabel('$|\hat{\mathbf{z}}_{\Theta}|$', 'Interpreter','latex');
+    % title('Noisy Azimuth Profile')
+    % legend({'True', 'Estimate'}, 'Location', 'best')  
     
     RangeAzProfile_hat = zeros(size(RangeAzProfile));
     for azBin = find(azSupport)
@@ -139,17 +141,43 @@ rng(42);
         RangeAzProfile_hat(:, azBin) = z_hat_R;
     end
     NSE = 10*log10(norm(RangeAzProfile_hat - RangeAzProfile).^2 ./ norm(RangeAzProfile).^2);
-    figure;
+    peaksnr = psnr(abs(RangeAzProfile_hat), abs(RangeAzProfile), max(abs(RangeAzProfile), [], "all"));
 
-    subplot(1, 2, 1);
-    [h, c, lim] = polarPcolor(prm.RangeBins, prm.AzBins, 10*log10(abs(RangeAzProfile).^2).', ...
-        'typerose', 'default', 'labelR', 'r [m]');
-    c.Label.String = 'Measured RCS [dB]';
-    sgtitle({'True (L) vs. Estimate (R)', ...
-    ['NSE = ' ' $\frac{||\hat{z} - z||^2}{||z||^2} = $' num2str(NSE) ' [dB]']}, ...
-    'interpreter', 'latex'); 
+    % figure;
+    % subplot(1, 2, 1);
+    % [h, c, lim] = polarPcolor(prm.RangeBins, prm.AzBins, 10*log10(abs(RangeAzProfile).^2).', ...
+    %     'typerose', 'default', 'labelR', 'r [m]');
+    % c.Label.String = 'Measured RCS [dB]';
+    % sgtitle({'True (L) vs. Estimate (R)', ...
+    % ['NSE = ' ' $\frac{||\hat{z} - z||^2}{||z||^2} = $' num2str(NSE) ' [dB]']}, ...
+    % 'interpreter', 'latex'); 
     
-    subplot(1, 2, 2);
-    [h, c_hat, lim] = polarPcolor(prm.RangeBins, prm.AzBins, 10*log10(abs(RangeAzProfile_hat).^2).', ...
-        'typerose', 'default', 'labelR', 'r [m]', 'lim', lim);
-    c_hat.Label.String = 'Measured RCS [dB]';
+    % subplot(1, 2, 2);
+    % [h, c_hat, lim] = polarPcolor(prm.RangeBins, prm.AzBins, 10*log10(abs(RangeAzProfile_hat).^2).', ...
+    %     'typerose', 'default', 'labelR', 'r [m]', 'lim', lim);
+    % c_hat.Label.String = 'Measured RCS [dB]';
+    
+    figure; hold on;
+    plot(prm.AzBins, theta_dist);
+    plot(prm.AzBins, theta_dist_v);
+    xlabel('Azimuth [$^\circ$]', 'Interpreter','latex', 'FontSize',14);
+    ylabel('Probability of User Angle')
+    title('PMF of User Locations')
+    legend({'Real', 'Virtual'}, 'Location','best', 'FontSize', 14)
+
+    figure;
+    imagesc(prm.AzBins, prm.RangeBins, abs(RangeAzProfile));
+    xlabel('Azimuth [$^\circ$]', 'Interpreter','latex', 'FontSize',14);
+    ylabel('Range $[m]$', 'Interpreter','latex', 'FontSize',14)
+    title('True Range-Angle Profile')
+
+    figure;
+    imagesc(prm.AzBins, prm.RangeBins, abs(RangeAzProfile_hat));
+    xlabel('Azimuth [$^\circ$]', 'Interpreter','latex', 'FontSize',14);
+    ylabel('Range $[m]$', 'Interpreter','latex', 'FontSize',14)
+    title(['Image Reconstruction, PSNR = ', num2str(peaksnr), ' [dB]'], ...
+           'Interpreter','latex','FontSize',14)
+
+    % sgtitle({'True (L) vs. Estimate (R)', ...
+    % ['NSE = ' num2str(NSE) ' [dB]']}, ...
+    % 'interpreter', 'latex'); 

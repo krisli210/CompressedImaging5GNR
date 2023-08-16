@@ -12,7 +12,7 @@ rng(32);
 
     prm.Delta_f = 120*1e3; % SCS in KHz
     
-    prm.NRB = 30; % number of resource blocks
+    prm.NRB = 60; % number of resource blocks
     prm.K = 12*prm.NRB;
     
     prm.NumUsers = 3; % U per RB
@@ -41,13 +41,13 @@ rng(32);
     
     % % % % % % % Target Construction
 %     prm.N_theta = prm.BsArraySize * prm.RxArraySize; %number of grid spots, i.e. dimension of the quantized azimuth profile
-    prm.N_theta = 256;
+    prm.N_theta = 128;
     thetaMin = prm.BsAZlim(1); thetaMax = prm.BsAZlim(2); %in Azimuth
     prm.AzBins = thetaMin:(thetaMax-thetaMin)/(prm.N_theta-1):thetaMax;
     prm.AzBins_Sq = thetaMin:(120/sqrt(prm.N_theta)-1):thetaMax;
 
     % % % % % % % Grid/Target Construction
-    prm.L = 30;
+    prm.L = 133;
     prm.rMin = 20; prm.rMax = 70;
     
     max_FSPL_dB = 10*log10((4*pi*prm.rMax/prm.lam)^-2);
@@ -125,14 +125,14 @@ rng(32);
         I = find(z_theta_per_K(:, k));
         azSupport(I) = azSupport(I) | 1;
     end
-    figure; 
-    hold on; 
-    stem(-60:120/(prm.N_theta-1):60, abs(sum(RangeAzProfile, 1)));
-    stem(-60:120/(prm.N_theta-1):60, mean(abs(z_theta_per_K(:, 1)), 2), '--x');
-    xlabel('\theta');
-    ylabel('$|\hat{\mathbf{z}}_{\Theta}|$', 'Interpreter','latex');
-    title('Noisy Azimuth Profile')
-    legend({'True', 'Estimate'}, 'Location', 'best')  
+    % figure; 
+    % hold on; 
+    % stem(-60:120/(prm.N_theta-1):60, abs(sum(RangeAzProfile, 1)));
+    % stem(-60:120/(prm.N_theta-1):60, mean(abs(z_theta_per_K(:, 1)), 2), '--x');
+    % xlabel('\theta');
+    % ylabel('$|\hat{\mathbf{z}}_{\Theta}|$', 'Interpreter','latex');
+    % title('Noisy Azimuth Profile')
+    % legend({'True', 'Estimate'}, 'Location', 'best')  
     
     RangeAzProfile_hat = zeros(size(RangeAzProfile));
     for azBin = find(azSupport)
@@ -141,16 +141,26 @@ rng(32);
     end
     NSE = 10*log10(norm(RangeAzProfile_hat - RangeAzProfile).^2 ./ norm(RangeAzProfile).^2);
     figure;
+    % 
+    % subplot(1, 2, 1);
+    % [h, c, lim] = polarPcolor(prm.RangeBins, prm.AzBins, 10*log10(abs(RangeAzProfile).^2).', ...
+    %     'typerose', 'default', 'labelR', 'r [m]');
+    % c.Label.String = 'Measured RCS [dB]';
+    % sgtitle({'True (L) vs. Estimate (R)', ...
+    % ['NSE = ' ' $\frac{||\hat{z} - z||^2}{||z||^2} = $' num2str(NSE) ' [dB]']}, ...
+    % 'interpreter', 'latex'); 
+    % 
+    % subplot(1, 2, 2);
+    % [h, c_hat, lim] = polarPcolor(prm.RangeBins, prm.AzBins, 10*log10(abs(RangeAzProfile_hat).^2).', ...
+    %     'typerose', 'default', 'labelR', 'r [m]', 'lim', lim);
+    % c_hat.Label.String = 'Measured RCS [dB]';
 
-    subplot(1, 2, 1);
-    [h, c, lim] = polarPcolor(prm.RangeBins, prm.AzBins, 10*log10(abs(RangeAzProfile).^2).', ...
-        'typerose', 'default', 'labelR', 'r [m]');
-    c.Label.String = 'Measured RCS [dB]';
-    sgtitle({'True (L) vs. Estimate (R)', ...
-    ['NSE = ' ' $\frac{||\hat{z} - z||^2}{||z||^2} = $' num2str(NSE) ' [dB]']}, ...
-    'interpreter', 'latex'); 
-    
+    figure;
+    subplot(1, 2, 1); 
+    imagesc(abs(RangeAzProfile));
     subplot(1, 2, 2);
-    [h, c_hat, lim] = polarPcolor(prm.RangeBins, prm.AzBins, 10*log10(abs(RangeAzProfile_hat).^2).', ...
-        'typerose', 'default', 'labelR', 'r [m]', 'lim', lim);
-    c_hat.Label.String = 'Measured RCS [dB]';
+    imagesc(abs(RangeAzProfile_hat));
+
+    sgtitle({'True (L) vs. Estimate (R)', ...
+    ['NSE = ' num2str(NSE) ' [dB]']}, ...
+    'interpreter', 'latex'); 

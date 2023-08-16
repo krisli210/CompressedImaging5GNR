@@ -1,11 +1,11 @@
-function [theta_dist, theta_dist_cum] = getUserDistribution(N_Theta, AzBins, distType)
+function [theta_dist, theta_dist_cum, theta_dist_v, theta_dist_cum_v] = getUserDistribution(N_Theta, AzBins, distType)
     
     %% Generate custom bimodal
     if strcmp(distType, 'custom bimodal')
         n = 1e7;
         var = 40; % degrees
-        mean1 = -30;
-        mean2 = 30;
+        mean1 = -45;
+        mean2 = 45;
         bimodal_histogram = ( [sqrt(var) / 2 * randn(n/2, 1) - mean1
                                  sqrt(var) / 2 * randn(n/2, 1) - mean2 ] );
         
@@ -19,4 +19,7 @@ function [theta_dist, theta_dist_cum] = getUserDistribution(N_Theta, AzBins, dis
     end
 
     theta_dist_cum = cumsum(theta_dist);
+
+    theta_dist_v = (max(theta_dist)-theta_dist) / sum(max(theta_dist)-theta_dist); 
+    theta_dist_cum_v = cumsum(theta_dist_v);
 end

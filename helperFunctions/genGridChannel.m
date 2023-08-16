@@ -7,12 +7,15 @@ function [H_tens, RangeAzProfile, ScatPosPol, threshold, a] = genGridChannel(prm
 %     rangeInd = randperm(prm.N_R, prm.L);
     azInd = randi(prm.N_theta, [prm.L, 1]);
     rangeInd = randi(prm.N_R, [prm.L, 1]);
+    
+    % [azInd, rangeInd] = getRICE_Image();
+    % prm.L = length(azInd);
 
     azValues = prm.AzBins(azInd);
     rangeValues = prm.RangeBins(rangeInd);
     ScatPosPol = [rangeValues; azValues; zeros(1, prm.L)];
     ScatCoeff = ones(1, prm.L) .* complex(1, 1) ./ sqrt(2); %Unit reflectors
-
+    
     RangeAzProfile = zeros(prm.N_R, prm.N_theta);
     H_tens = zeros(prm.NumRxElements, prm.NumBsElements, prm.K);
     
