@@ -1,4 +1,4 @@
-function [sum_capacity, peaksnr] = alphaPowerControlWrapped(prm, H_TX, H_RX, Psi_AZ, Psi_R, H_tens, RangeAzProfile, a)
+function [sum_capacity, peaksnr] = alphaPowerControlWrapped_Interference(prm, H_TX, H_RX, Psi_AZ, Psi_R, H_tens, RangeAzProfile, a)
     
     % [H_tens, RangeAzProfile, ~, ~, a] = genGridChannel(prm);
 
@@ -10,16 +10,15 @@ function [sum_capacity, peaksnr] = alphaPowerControlWrapped(prm, H_TX, H_RX, Psi
     prm.Pt_dBm = 20;
     prm.Pt_W = 10^(prm.Pt_dBm/10)*1e-3; % Watts
     % [txGrid] = genFreqTxGrid(prm.NumBsElements, prm.NumUsers, prm.MCS, prm.N_T, prm.Nofdm, prm.K, H_TX, prm.Pt_W); % (Nofdm * N_T) x M x K
-    [txGrid, interferenceLog, rateLog] = genAngleDefFreqTxGrid_v2(prm.NumBsElements, prm.NumUsers, prm.NumVirtualUsers, prm.alpha, prm.MCS, ...
+    prm.commsSNR_lin = 10^(prm.commsSNR_dB/10);
+        [txGrid, interferenceLog, rateLog] = genAngleDefFreqTxGrid_v2(prm.NumBsElements, prm.NumUsers, prm.NumVirtualUsers, prm.alpha, prm.MCS, ...
                 prm.N_T, prm.Nofdm, prm.K, H_TX, prm.Pt_W, theta_dist_cum, theta_dist_cum_v, prm.gamma, prm.sigma_N_sq);
-    
+
     sum_capacity = mean(sum(rateLog, 1));
 % % % END Transmit Signal Construction
     
     % Rx Signal    
-    prm.SNR_dB = 20;
-    prm.SNR_lin = 10^(prm.SNR_dB/10);
-
+    prm.SNR_lin = 10^(prm.SNR_dB/10); 
     W = zeros(prm.NumRxElements, prm.NumRxElements, prm.K);
     Y_tens = zeros(prm.NumRxElements, prm.Nofdm * prm.N_T, prm.K);
     freqSamples = 1: (floor(prm.K / prm.N_R)) : prm.K;

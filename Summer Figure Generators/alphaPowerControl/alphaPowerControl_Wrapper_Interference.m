@@ -15,8 +15,8 @@ rng(42);
     prm.NRB = 60; % number of resource blocks
     prm.K = 12*prm.NRB;
     
-    prm.NumUsers = 3; % U per RB
-    prm.NumVirtualUsers = 5; % V per RB;
+    prm.NumUsers = 4; % U per RB
+    prm.NumVirtualUsers = 4; % V per RB;
     prm.alpha = 1; % Power scaling. 
     prm.commsSNR_dB = 10;
 
@@ -27,7 +27,7 @@ rng(42);
     
 % % % END OFDM Signal Params
 
-% % % % % Array and Channel Info
+% % % % % Array and Channel Inf
 
     prm.BsPos = [0; 0; 0];
     prm.BsArraySize = 16; %BS Dimension
@@ -89,13 +89,13 @@ rng(42);
 
     prm.Pt_dBm = 20;
     prm.Pt_W = 10^(prm.Pt_dBm/10)*1e-3; % Watts
-    
-    prm.SNR_dB = 20; % Sensing nominal SNR
-    prm.gamma_dB = 20; %channel gain
+    prm.SNR_dB = 20;
+    prm.SNR_lin = 10^(prm.SNR_dB/10);
+    prm.gamma_dB = 10; %channel gain
     prm.gamma = 10^(prm.gamma_dB/10);
     prm.sigma_N_sq = 1e-6;
     
-    nItersPerScene = 100;
+    nItersPerScene = 10;
     nScenes = 1;
     alpha_range = 1:-.05:.1;
     u_range = 1:3:7;
@@ -112,11 +112,11 @@ rng(42);
                 [H_tens, RangeAzProfile, ~, ~, a] = genGridChannel(prm);
                 for j = 1:nItersPerScene
                     currVecInd = (i-1)*nItersPerScene + j;
-                    [sum_capacities(v_ind, alpha_ind, currVecInd), psnrs(v_ind, alpha_ind, currVecInd)] = alphaPowerControlWrapped(prm, H_TX, H_RX, Psi_AZ, Psi_R, H_tens, RangeAzProfile, a);
+                    [sum_capacities(v_ind, alpha_ind, currVecInd), psnrs(v_ind, alpha_ind, currVecInd)] = alphaPowerControlWrapped_Interference(prm, H_TX, H_RX, Psi_AZ, Psi_R, H_tens, RangeAzProfile, a);
                 end
             end
         end
     end
 
-    save("C:\Users\krisl\Desktop\Summer2023\CompressedImaging5GNR\Summer Figure Generators\alphaPowerControl\alphaPowerControl_vary_V_RICEscene_Interference_v2", ...
+    save("C:\Users\krisl\Desktop\Summer2023\CompressedImaging5GNR\Summer Figure Generators\alphaPowerControl\alphaPowerControl_vary_V_RICEscene_noInterference_v1", ...
         'psnrs', 'sum_capacities', 'prm', 'alpha_range', 'v_range', 'u_range');

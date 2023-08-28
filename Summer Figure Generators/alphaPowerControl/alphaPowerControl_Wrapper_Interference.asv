@@ -1,7 +1,7 @@
 close all
 clear 
 
-rng(52);
+rng(42);
 
 
 % % % OFDM Signal Params
@@ -15,10 +15,10 @@ rng(52);
     prm.NRB = 60; % number of resource blocks
     prm.K = 12*prm.NRB;
     
-    prm.NumUsers = 3; % U per RB
-    prm.NumVirtualUsers = 5; % V per RB;
+    prm.NumUsers = 4; % U per RB
+    prm.NumVirtualUsers = 4; % V per RB;
     prm.alpha = 1; % Power scaling. 
-    prm.commsSNR_dB = 20;
+    prm.commsSNR_dB = 10;
 
     prm.N_T = 1; % number of time slots
     prm.Nofdm = 14; %number of OFDM symbols per slot
@@ -27,7 +27,7 @@ rng(52);
     
 % % % END OFDM Signal Params
 
-% % % % % Array and Channel Info
+% % % % % Array and Channel Inf
 
     prm.BsPos = [0; 0; 0];
     prm.BsArraySize = 16; %BS Dimension
@@ -50,7 +50,7 @@ rng(52);
     prm.AzBins = thetaMin:(thetaMax-thetaMin)/(prm.N_theta-1):thetaMax;
 
     % % % % % % % Grid/Target Construction
-    prm.L = 30;
+    prm.L = 133;
     prm.rMin = 20; prm.rMax = 70;
     
     max_FSPL_dB = 10*log10((4*pi*prm.rMax/prm.lam)^-2);
@@ -75,9 +75,9 @@ rng(52);
     % Spatial Dictionary Construction
     H_TX = zeros(prm.NumBsElements, prm.N_theta);
     H_RX = zeros(prm.NumRxElements, prm.N_theta);
-    for n = 1:prm.N_theta
-        H_TX(:, n) = exp(-1j * 2 * pi * prm.DeltaTX * (0:prm.NumBsElements-1) * sind(prm.AzBins(n))).';
-        H_RX(:, n) = exp(-1j * 2 * pi * prm.DeltaRX * (0:prm.NumRxElements-1) * sind(prm.AzBins(n))).';
+    for j = 1:prm.N_theta
+        H_TX(:, j) = exp(-1j * 2 * pi * prm.DeltaTX * (0:prm.NumBsElements-1) * sind(prm.AzBins(j))).';
+        H_RX(:, j) = exp(-1j * 2 * pi * prm.DeltaRX * (0:prm.NumRxElements-1) * sind(prm.AzBins(j))).';
     end
     Psi_AZ = kr(H_TX, H_RX); % 
 
@@ -92,22 +92,28 @@ rng(52);
     
     prm.SNR_dB = 20; % Sensing nominal SNR
     
-    nIters = 10;
-    alpha_range = 1:-.05:0;
-    v_range = 1:4:7;
-    psnrs = zeros(length(v_range), length(alpha_range), nIters);
-    sum_capacities = zeros(length(v_range), length(alpha_range), nIters);
-
-    for alpha_ind = 1:length(alpha_range)
-        prm.alpha = alpha_range(alpha_ind);
-        for v_ind = 1:length(v_range)
-            prm.NumVirtualUsers = v_range(v_ind);
-
-            for n = 1:nIters
-                [sum_capacities(v_ind, alpha_ind, n), psnrs(v_ind, alpha_ind, n)] = alphaPowerControlWrapped(prm, H_TX, H_RX, Psi_AZ, Psi_R);
+    nItersPerScene = 10;
+    nScenes = 1;
+    alpha_range = 1:-.05:.1;
+    u_range = 1:3:7;
+    v_range = 8 - u_range;
+    psnrs = zeros(length(v_range), length(alpha_range), nScenes * nItersPerScene);
+    sum_capacities = zeros(length(v_range), length(alpha_range), nScenes * nItersPerScene);
+    
+    for i = 1:nScenes
+        for alpha_ind = 1:length(alpha_range)
+            prm.alpha = alpha_range(alpha_ind);
+            for v_ind = 1:length(v_range)
+                prm.NumVirtualUsers = v_range(v_ind);
+                prm.NumUsers = u_range(v_ind);
+                [H_tens, RangeAzProfile, ~, ~, a] = genGridChannel(prm);
+                for j = 1:nItersPerScene
+                    currVecInd = (i-1)*nItersPerScene + j;
+                    [sum_capacities(v_ind, alpha_ind, currVecInd), psnrs(v_ind, alpha_ind, currVecInd)] = alphaPowerControlWrapped_Interference(prm, H_TX, H_RX, Psi_AZ, Psi_R, H_tens, RangeAzProfile, a);
+                end
             end
         end
     end
 
-    save("C:\Users\krisl\Desktop\Summer2023\CompressedImaging5GNR\Summer Figure Generators\alphaPowerControl\alphaPowerControl_vary_V_uniform_Scats_fix_U_prime_test", ...
+    save("C:\Users\krisl\Desktop\Summer2023\CompressedImaging5GNR\Summer Figure Generators\alphaPowerControl\alphaPowerControl_vary_V_RICEscene_Interference_v1", ...
         'psnrs', 'sum_capacities', 'prm', 'alpha_range', 'v_range', 'u_range');

@@ -11,8 +11,8 @@ function [sum_capacity, peaksnr] = alphaPowerControlWrapped(prm, H_TX, H_RX, Psi
     prm.Pt_W = 10^(prm.Pt_dBm/10)*1e-3; % Watts
     % [txGrid] = genFreqTxGrid(prm.NumBsElements, prm.NumUsers, prm.MCS, prm.N_T, prm.Nofdm, prm.K, H_TX, prm.Pt_W); % (Nofdm * N_T) x M x K
     [txGrid, interferenceLog, rateLog] = genAngleDefFreqTxGrid_v2(prm.NumBsElements, prm.NumUsers, prm.NumVirtualUsers, prm.alpha, prm.MCS, ...
-                prm.N_T, prm.Nofdm, prm.K, H_TX, prm.Pt_W, theta_dist_cum, theta_dist_cum_v, prm.gamma, prm.sigma_N_sq);
-    
+                prm.N_T, prm.Nofdm, prm.K, H_TX, prm.Pt_W, theta_dist_cum, theta_dist_cum_v);
+
     sum_capacity = mean(sum(rateLog, 1));
 % % % END Transmit Signal Construction
     

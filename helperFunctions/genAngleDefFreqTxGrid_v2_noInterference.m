@@ -1,4 +1,4 @@
-function [txGrid, interferenceLog, rateLog] = genAngleDefFreqTxGrid_v2(M, U, V, alpha, MCS, N_T, Nofdm, K, txCodebook, Pt_W, theta_dist_cum, theta_dist_cum_v, gamma, sigma_N_sq)
+function [txGrid] = genAngleDefFreqTxGrid_v2_noInterference(M, U, V, alpha, MCS, N_T, Nofdm, K, txCodebook, Pt_W, theta_dist_cum, theta_dist_cum_v, SNR_lin)
     N_Theta = size(txCodebook, 2);
     %Generates baseband equivalent frequency-domain signaling
     % txGrid output is (Nofdm * N_T) x M x K
@@ -19,10 +19,6 @@ function [txGrid, interferenceLog, rateLog] = genAngleDefFreqTxGrid_v2(M, U, V, 
                 if (~mod(k, 12+1) || k == 1)
                     [p, userAngleInds, userAngleInds_v] = getUserPowerVector(U, V, alpha, theta_dist_cum, theta_dist_cum_v, Pt_W);
                     F = txCodebook(:, [userAngleInds.' userAngleInds_v.']) ./ sqrt(M);
-                    % interferencePower = getInterferencePower(F, alpha, U, V);
-                    interferencePower = 0;
-                    interferenceLog = [interferenceLog interferencePower];
-                    rateLog = [rateLog log2(1+ (alpha*Pt_W/U) * gamma ./ (sigma_N_sq + interferencePower) )];
                 end
                 startTimeIndex = (Nofdm * (n_T - 1));
                 s_slice = squeeze(s(:, startTimeIndex + nofdm, k)); % N_Theta x 1
@@ -50,25 +46,4 @@ function [p, userAngleInds, userAngleInds_v] = getUserPowerVector(U, V, alpha, t
     p(U+1:U+V) = (1-alpha) * Pt_W / numel(userAngleInds_v);
 
     % p = Pt_W / N_Theta * ones(N_Theta, 1);
-end
-
-function interferencePower = getInterferencePower(F, alpha, U, V)
-    % U x 1 vector, with u-th term 
-    interferencePower = zeros(U, 1);
-
-    for u = 1:U
-        for i = 1:U
-            if (i ~= u)
-                interferencePower(u) = interferencePower(u) + ...
-                    (alpha / U) * abs(F(:, u)' * F(:, i))^2; 
-            end
-        end
-
-        for j = U+1:U+V
-            interferencePower(u) = interferencePower(u) + ...
-                sqrt(alpha*(1-alpha) / (U*V)) * abs(F(:, u)' * F(:, j))^2;
-        end
-
-    end
-
 end
