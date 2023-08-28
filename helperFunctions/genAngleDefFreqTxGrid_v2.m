@@ -19,9 +19,9 @@ function [txGrid, interferenceLog, rateLog] = genAngleDefFreqTxGrid_v2(M, U, V, 
                 if (~mod(k, 12+1) || k == 1)
                     [p, userAngleInds, userAngleInds_v] = getUserPowerVector(U, V, alpha, theta_dist_cum, theta_dist_cum_v, Pt_W);
                     F = txCodebook(:, [userAngleInds.' userAngleInds_v.']) ./ sqrt(M);
-                    % interferencePower = getInterferencePower(F, alpha, U, V);
-                    interferencePower = 0;
-                    interferenceLog = [interferenceLog interferencePower];
+                    interferencePower = getInterferencePower(F, alpha, U, V);
+                    % interferencePower = zeros(U, 1);
+                    % interferenceLog = [interferenceLog interferencePower];
                     rateLog = [rateLog log2(1+ (alpha*Pt_W/U) * gamma ./ (sigma_N_sq + interferencePower) )];
                 end
                 startTimeIndex = (Nofdm * (n_T - 1));

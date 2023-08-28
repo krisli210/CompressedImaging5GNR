@@ -1,8 +1,10 @@
 close all
 clear
 % 
-f_interference = load('C:\Users\krisl\Desktop\Summer2023\CompressedImaging5GNR\Summer Figure Generators\alphaPowerControl\alphaPowerControl_vary_V_RICEscene_Interference_v1.mat');
-f_noInterference = load("C:\Users\krisl\Desktop\Summer2023\CompressedImaging5GNR\Summer Figure Generators\alphaPowerControl\alphaPowerControl_vary_V_RICEscene_noInterference_v1.mat");
+f_interference = load('C:\Users\krisl\Desktop\Summer2023\CompressedImaging5GNR\Summer Figure Generators\alphaPowerControl\alphaPowerControl_vary_V_RICEscene_Interference_v2.mat');
+% f_interference = load('C:\Users\krisl\Desktop\Summer2023\CompressedImaging5GNR\Summer Figure Generators\alphaPowerControl\alphaPowerControl_vary_V_UniformScene_Interference_v2.mat');
+
+% f_noInterference = load("C:\Users\krisl\Desktop\Summer2023\CompressedImaging5GNR\Summer Figure Generators\alphaPowerControl\alphaPowerControl_vary_V_RICEscene_noInterference_v2.mat");
 
 alpha_range = f_interference.alpha_range;
 v_range = f_interference.v_range;
@@ -11,20 +13,8 @@ u_range = f_interference.u_range;
 psnrs_interference = f_interference.psnrs;
 sum_capacities = f_interference.sum_capacities;
 
-psnrs_noInterference = f_noInterference.psnrs;
-sum_capacities_noInterference = f_noInterference.sum_capacities;
-
-% psnrs = zeros(length(v_range), length(alpha_range), 100+300);
-% sum_capacities = zeros(length(v_range), length(alpha_range), 100+300);
-% 
-% psnrs(:, :, 1:300) = f.psnrs;
-% psnrs(:, :, 301:400) = f2.psnrs; 
-
-% sum_capacities(:, :, 1:300) = f.sum_capacities;
-% sum_capacities(:, :, 301:400) = f2.sum_capacities;
-
-col_str_interference = ['r-x';'g-o';'b-*'];
-col_str_no_interference = ['r--x'; 'g--o';'b--*'];
+% psnrs_noInterference = f_noInterference.psnrs;
+% sum_capacities_noInterference = f_noInterference.sum_capacities;
 
 figure; hold on;
 for v_ind = 1:length(v_range)
@@ -38,15 +28,15 @@ for v_ind = 1:length(v_range)
 
     psnrs_curr_interference = squeeze(10.^(psnrs_interference(v_ind, :, :)./10));
     sum_capacities_curr_interference = squeeze(sum_capacities(v_ind, :, :));
-    plot(10*log10(mean(psnrs_curr_interference(1:19, :), 2)), mean(sum_capacities_curr_interference(1:19, :), 2), ...
+    plot(10*log10(mean(psnrs_curr_interference(2:19, :), 2)), mean(sum_capacities_curr_interference(2:19, :), 2), ...
         lin_str);
 
-    % if (v_ind == 3)
-    %     text(10*log10(mean(psnrs_curr_interference(1, :), 2)), mean(sum_capacities_curr(1, :), 2), '$\alpha=1$', 'VerticalAlignment','bottom', 'HorizontalAlignment','left','Interpreter','latex','FontSize',14)
-    % end
-    % if (v_ind == 1)
-    %     text(10*log10(mean(psnrs_curr_interference(19, :), 2)), mean(sum_capacities_curr(19, :), 2), '$\alpha=.1$', 'VerticalAlignment','bottom', 'HorizontalAlignment','right','Interpreter','latex','FontSize',14)
-    % end
+    if (v_ind == 2)
+        text(10*log10(mean(psnrs_curr_interference(2, :), 2)), mean(sum_capacities_curr_interference(2, :), 2), '$\alpha=.95$', 'VerticalAlignment','bottom', 'HorizontalAlignment','left','Interpreter','latex','FontSize',14)
+    end
+    if (v_ind == 2)
+        text(10*log10(mean(psnrs_curr_interference(19, :), 2)), mean(sum_capacities_curr_interference(19, :), 2), '$\alpha=.1$', 'VerticalAlignment','bottom', 'HorizontalAlignment','right','Interpreter','latex','FontSize',14)
+    end
 end
 
 % for v_ind = 1:length(v_range)

@@ -95,8 +95,8 @@ rng(42);
     prm.gamma = 10^(prm.gamma_dB/10);
     prm.sigma_N_sq = 1e-6;
     
-    nItersPerScene = 10;
-    nScenes = 1;
+    nItersPerScene = 30;
+    nScenes = 10;
     alpha_range = 1:-.05:.1;
     u_range = 1:3:7;
     v_range = 8 - u_range;
@@ -118,5 +118,5 @@ rng(42);
         end
     end
 
-    save("C:\Users\krisl\Desktop\Summer2023\CompressedImaging5GNR\Summer Figure Generators\alphaPowerControl\alphaPowerControl_vary_V_RICEscene_noInterference_v1", ...
+    save("C:\Users\krisl\Desktop\Summer2023\CompressedImaging5GNR\Summer Figure Generators\alphaPowerControl\alphaPowerControl_vary_V_UniformScene_Interference_v2", ...
         'psnrs', 'sum_capacities', 'prm', 'alpha_range', 'v_range', 'u_range');
