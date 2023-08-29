@@ -19,7 +19,7 @@ function [txGrid, interferenceLog, rateLog] = genAngleDefFreqTxGrid_v2(M, U, V, 
                 if (~mod(k, 12+1) || k == 1)
                     [p, userAngleInds, userAngleInds_v] = getUserPowerVector(U, V, alpha, theta_dist_cum, theta_dist_cum_v, Pt_W);
                     F = txCodebook(:, [userAngleInds.' userAngleInds_v.']) ./ sqrt(M);
-                    interferencePower = getInterferencePower(F, alpha, U, V);
+                    interferencePower = getInterferencePower(F, alpha, U, V, Pt_W);
                     % interferencePower = zeros(U, 1);
                     % interferenceLog = [interferenceLog interferencePower];
                     rateLog = [rateLog log2(1+ (alpha*Pt_W/U) * gamma ./ (sigma_N_sq + interferencePower) )];
@@ -52,20 +52,20 @@ function [p, userAngleInds, userAngleInds_v] = getUserPowerVector(U, V, alpha, t
     % p = Pt_W / N_Theta * ones(N_Theta, 1);
 end
 
-function interferencePower = getInterferencePower(F, alpha, U, V)
+function interferencePower = getInterferencePower(F, alpha, U, V, Pt_W)
     % U x 1 vector, with u-th term 
     interferencePower = zeros(U, 1);
 
     for u = 1:U
         for i = 1:U
             if (i ~= u)
-                interferencePower(u) = interferencePower(u) + ...
+                interferencePower(u) = Pt_W * interferencePower(u) + ...
                     (alpha / U) * abs(F(:, u)' * F(:, i))^2; 
             end
         end
 
         for j = U+1:U+V
-            interferencePower(u) = interferencePower(u) + ...
+            interferencePower(u) = Pt_W * interferencePower(u) + ...
                 sqrt(alpha*(1-alpha) / (U*V)) * abs(F(:, u)' * F(:, j))^2;
         end
 

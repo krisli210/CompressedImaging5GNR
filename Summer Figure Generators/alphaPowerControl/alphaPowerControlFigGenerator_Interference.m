@@ -1,7 +1,10 @@
 close all
 clear
 % 
-f_interference = load('C:\Users\krisl\Desktop\Summer2023\CompressedImaging5GNR\Summer Figure Generators\alphaPowerControl\alphaPowerControl_vary_V_RICEscene_Interference_v2.mat');
+% f_interference = load('C:\Users\krisl\Desktop\Summer2023\CompressedImaging5GNR\Summer Figure Generators\alphaPowerControl\alphaPowerControl_vary_V_RICEscene_Interference_v2.mat');
+f_interference = load('C:\Users\krisl\Desktop\Summer2023\CompressedImaging5GNR\Summer Figure Generators\alphaPowerControl\alphaPowerControl_vary_V_RICEscene_Interference_v3_0dBGain.mat');
+
+
 % f_interference = load('C:\Users\krisl\Desktop\Summer2023\CompressedImaging5GNR\Summer Figure Generators\alphaPowerControl\alphaPowerControl_vary_V_UniformScene_Interference_v2.mat');
 
 % f_noInterference = load("C:\Users\krisl\Desktop\Summer2023\CompressedImaging5GNR\Summer Figure Generators\alphaPowerControl\alphaPowerControl_vary_V_RICEscene_noInterference_v2.mat");
@@ -34,8 +37,8 @@ for v_ind = 1:length(v_range)
     if (v_ind == 2)
         text(10*log10(mean(psnrs_curr_interference(2, :), 2)), mean(sum_capacities_curr_interference(2, :), 2), '$\alpha=.95$', 'VerticalAlignment','bottom', 'HorizontalAlignment','left','Interpreter','latex','FontSize',14)
     end
-    if (v_ind == 2)
-        text(10*log10(mean(psnrs_curr_interference(19, :), 2)), mean(sum_capacities_curr_interference(19, :), 2), '$\alpha=.1$', 'VerticalAlignment','bottom', 'HorizontalAlignment','right','Interpreter','latex','FontSize',14)
+    if (v_ind == 1)
+        text(10*log10(mean(psnrs_curr_interference(19, :), 2)), mean(sum_capacities_curr_interference(19, :), 2), '$\alpha=.1$', 'VerticalAlignment','top', 'HorizontalAlignment','left','Interpreter','latex','FontSize',14)
     end
 end
 

@@ -15,8 +15,8 @@ rng(42);
     prm.NRB = 60; % number of resource blocks
     prm.K = 12*prm.NRB;
     
-    prm.NumUsers = 1; % U per RB
-    prm.NumVirtualUsers = 7; % V per RB;
+    prm.NumUsers = 7; % U per RB
+    prm.NumVirtualUsers = 1; % V per RB;
     prm.alpha = .1; % Power scaling. 
     prm.N_T = 1; % number of time slots
     prm.Nofdm = 14; %number of OFDM symbols per slot
