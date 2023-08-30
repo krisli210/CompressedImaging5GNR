@@ -21,7 +21,7 @@ function [txGrid, interferenceLog, rateLog] = genAngleDefFreqTxGrid_v2(M, U, V, 
                     F = txCodebook(:, [userAngleInds.' userAngleInds_v.']) ./ sqrt(M);
                     interferencePower = getInterferencePower(F, alpha, U, V, Pt_W);
                     % interferencePower = zeros(U, 1);
-                    % interferenceLog = [interferenceLog interferencePower];
+                    interferenceLog = [interferenceLog interferencePower];
                     rateLog = [rateLog log2(1 + (alpha*Pt_W/U) * gamma ./ (sigma_N_sq + interferencePower) )];
                 end
                 startTimeIndex = (Nofdm * (n_T - 1));
@@ -59,14 +59,14 @@ function interferencePower = getInterferencePower(F, alpha, U, V, Pt_W)
     for u = 1:U
         for i = 1:U
             if (i ~= u)
-                interferencePower(u) = Pt_W * interferencePower(u) + ...
-                    (alpha / U) * abs(F(:, u)' * F(:, i))^2; 
+                interferencePower(u) = interferencePower(u) + ...
+                    Pt_W * (alpha / U) * abs(F(:, u)' * F(:, i))^2; 
             end
         end
 
         for j = U+1:U+V
-            interferencePower(u) = Pt_W * interferencePower(u) + ...
-                sqrt(alpha*(1-alpha) / (U*V)) * abs(F(:, u)' * F(:, j))^2;
+            interferencePower(u) = interferencePower(u) + ...
+                Pt_W * sqrt(alpha*(1-alpha) / (U*V)) * abs(F(:, u)' * F(:, j))^2;
         end
 
     end

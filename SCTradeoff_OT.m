@@ -1,7 +1,7 @@
 close all
 clear 
 
-rng(45);
+rng(43);
 
 
 % % % OFDM Signal Params
@@ -15,9 +15,9 @@ rng(45);
     prm.NRB = 60; % number of resource blocks
     prm.K = 12*prm.NRB;
     
-    prm.NumUsers = 8; % U per RB
-    prm.NumVirtualUsers = 0; % V per RB;
-    prm.alpha = 1; % Power scaling. 
+    prm.NumUsers = 1; % U per RB
+    prm.NumVirtualUsers = 7; % V per RB;
+    prm.alpha = .99; % Power scaling. 
     prm.N_T = 1; % number of time slots
     prm.Nofdm = 14; %number of OFDM symbols per slot
     prm.N_s = prm.N_T*prm.Nofdm;
@@ -93,13 +93,16 @@ rng(45);
     prm.Pt_W = 10^(prm.Pt_dBm/10)*1e-3; % Watts
     prm.SNR_dB = 20;
     prm.SNR_lin = 10^(prm.SNR_dB/10);
-    prm.gamma_dB = 20; %channel gain
+    prm.gamma_dB = 0; %channel gain
     prm.gamma = 10^(prm.gamma_dB/10);
     prm.sigma_N_sq = 1e-6;
 
     % [txGrid] = genFreqTxGrid(prm.NumBsElements, prm.NumUsers, prm.MCS, prm.N_T, prm.Nofdm, prm.K, H_TX, prm.Pt_W); % (Nofdm * N_T) x M x K
     [txGrid, interferenceLog, rateLog] = genAngleDefFreqTxGrid_v2(prm.NumBsElements, prm.NumUsers, prm.NumVirtualUsers, prm.alpha, prm.MCS, ...
                 prm.N_T, prm.Nofdm, prm.K, H_TX, prm.Pt_W, theta_dist_cum, theta_dist_cum_v, prm.gamma, prm.sigma_N_sq);
+
+    meanRate = mean(sum(rateLog, 1))
+    meanInterference = mean(interferenceLog, "all")
 % % % END Transmit Signal Construction
     
     % Rx Signal    
@@ -161,24 +164,24 @@ rng(45);
     %     'typerose', 'default', 'labelR', 'r [m]', 'lim', lim);
     % c_hat.Label.String = 'Measured RCS [dB]';
     
-    figure; hold on;
-    plot(prm.AzBins, theta_dist, 'Color', [.5,.5,.5]);
-    plot(prm.AzBins, theta_dist_v, '--', 'Color', [.5,.5,.5]);
-    xlabel('Azimuth [$^\circ$]', 'Interpreter','latex', 'FontSize',14);
-    ylabel('Probability of User Angle', 'Interpreter','latex','FontSize',14);
-    % title('Example PMFs of User Angles')
-    legend({'Real', 'Virtual'}, 'Location','best', 'FontSize', 14, 'Interpreter','latex')
+    % figure; hold on;
+    % plot(prm.AzBins, theta_dist, 'Color', [.5,.5,.5]);
+    % plot(prm.AzBins, theta_dist_v, '--', 'Color', [.5,.5,.5]);
+    % xlabel('Azimuth [$^\circ$]', 'Interpreter','latex', 'FontSize',14);
+    % ylabel('Probability of User Angle', 'Interpreter','latex','FontSize',14);
+    % % title('Example PMFs of User Angles')
+    % legend({'Real', 'Virtual'}, 'Location','best', 'FontSize', 14, 'Interpreter','latex')
 
-    figure;
-    imagesc(prm.AzBins, prm.RangeBins, abs(RangeAzProfile));
-    xlabel('Azimuth [$^\circ$]', 'Interpreter','latex', 'FontSize',14);
-    ylabel('Range $[m]$', 'Interpreter','latex', 'FontSize',14)
-    title('True','FontSize',14, 'Interpreter','latex');
-    c=colorbar;
-    c.Label.String = '$|\textbf Z|$';
-    c.Label.Interpreter = 'Latex';
-    c.Label.Rotation = 360;
-    c.Label.FontSize = 18;
+    % figure;
+    % imagesc(prm.AzBins, prm.RangeBins, abs(RangeAzProfile));
+    % xlabel('Azimuth [$^\circ$]', 'Interpreter','latex', 'FontSize',14);
+    % ylabel('Range $[m]$', 'Interpreter','latex', 'FontSize',14)
+    % title('True','FontSize',14, 'Interpreter','latex');
+    % c=colorbar;
+    % c.Label.String = '$|\textbf Z|$';
+    % c.Label.Interpreter = 'Latex';
+    % c.Label.Rotation = 360;
+    % c.Label.FontSize = 18;
 
     figure;
     imagesc(prm.AzBins, prm.RangeBins, abs(RangeAzProfile_hat));
