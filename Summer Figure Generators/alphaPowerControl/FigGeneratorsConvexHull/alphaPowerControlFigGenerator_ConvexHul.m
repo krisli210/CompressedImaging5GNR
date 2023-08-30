@@ -2,7 +2,7 @@ close all
 clear
 % 
 % f_interference = load('C:\Users\krisl\Desktop\Summer2023\CompressedImaging5GNR\Summer Figure Generators\alphaPowerControl\alphaPowerControl_vary_V_RICEscene_Interference_v2.mat');
-f_interference = load('alphaPowerControl_vary_V_RICEscene_Interference_v3_0dBGain_fullData.mat');
+f_interference = load('alphaPowerControl_vary_V_RICEscene_Interference_v3_0dBGain_fullData_n100.mat');
 
 
 % f_interference = load('C:\Users\krisl\Desktop\Summer2023\CompressedImaging5GNR\Summer Figure Generators\alphaPowerControl\alphaPowerControl_vary_V_UniformScene_Interference_v2.mat');
