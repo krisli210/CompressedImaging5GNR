@@ -22,7 +22,7 @@ function [txGrid, interferenceLog, rateLog] = genAngleDefFreqTxGrid_v2(M, U, V, 
                     interferencePower = getInterferencePower(F, alpha, U, V, Pt_W);
                     % interferencePower = zeros(U, 1);
                     % interferenceLog = [interferenceLog interferencePower];
-                    rateLog = [rateLog log2(1+ (alpha*Pt_W/U) * gamma ./ (sigma_N_sq + interferencePower) )];
+                    rateLog = [rateLog log2(1 + (alpha*Pt_W/U) * gamma ./ (sigma_N_sq + interferencePower) )];
                 end
                 startTimeIndex = (Nofdm * (n_T - 1));
                 s_slice = squeeze(s(:, startTimeIndex + nofdm, k)); % N_Theta x 1
