@@ -65,8 +65,10 @@ function interferencePower = getInterferencePower(F, alpha, U, V, Pt_W)
         end
 
         for j = U+1:U+V
+            % interferencePower(u) = interferencePower(u) + ...
+            %     Pt_W * sqrt(alpha*(1-alpha) / (U*V)) * abs(F(:, u)' * F(:, j))^2;
             interferencePower(u) = interferencePower(u) + ...
-                Pt_W * sqrt(alpha*(1-alpha) / (U*V)) * abs(F(:, u)' * F(:, j))^2;
+                Pt_W * ((1-alpha) / V) * abs(F(:, u)' * F(:, j))^2;
         end
 
     end

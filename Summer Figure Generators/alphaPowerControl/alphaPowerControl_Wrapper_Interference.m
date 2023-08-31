@@ -118,5 +118,5 @@ rng(42);
         end
     end
 
-    save("C:\Users\krisl\Desktop\Summer2023\CompressedImaging5GNR\Summer Figure Generators\alphaPowerControl\alphaPowerControl_vary_V_RICEscene_Interference_v3_0dBGain_fullData_n100", ...
+    save("C:\Users\krisl\Desktop\Summer2023\CompressedImaging5GNR\Summer Figure Generators\alphaPowerControl\alphaPowerControl_vary_V_RICEscene_Interference_v3_0dBGain_v4", ...
         'psnrs', 'sum_capacities', 'prm', 'alpha_range', 'v_range', 'u_range');
