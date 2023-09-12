@@ -17,7 +17,7 @@ rng(43);
     
     prm.NumUsers = 1; % U per RB
     prm.NumVirtualUsers = 7; % V per RB;
-    prm.alpha = .99; % Power scaling. 
+    prm.alpha = .2; % Power scaling. 
     prm.N_T = 1; % number of time slots
     prm.Nofdm = 14; %number of OFDM symbols per slot
     prm.N_s = prm.N_T*prm.Nofdm;
@@ -101,8 +101,7 @@ rng(43);
     [txGrid, interferenceLog, rateLog] = genAngleDefFreqTxGrid_v2(prm.NumBsElements, prm.NumUsers, prm.NumVirtualUsers, prm.alpha, prm.MCS, ...
                 prm.N_T, prm.Nofdm, prm.K, H_TX, prm.Pt_W, theta_dist_cum, theta_dist_cum_v, prm.gamma, prm.sigma_N_sq);
 
-    meanRate = mean(sum(rateLog, 1))
-    meanInterference = mean(interferenceLog, "all")
+    sum_capacity = mean(sum(rateLog, 1));
 % % % END Transmit Signal Construction
     
     % Rx Signal    
@@ -187,13 +186,15 @@ rng(43);
     imagesc(prm.AzBins, prm.RangeBins, abs(RangeAzProfile_hat));
     xlabel('Azimuth [$^\circ$]', 'Interpreter','latex', 'FontSize',14);
     ylabel('Range $[m]$', 'Interpreter','latex', 'FontSize',14)
-    title({['Estimate, $\alpha = $ ' num2str(prm.alpha)], ['PSNR = ', num2str(peaksnr), ' [dB]']}, ...
-           'Interpreter','latex','FontSize',14)
-    c = colorbar;
-    c.Label.String = '$|\hat{\textbf Z}|$';
-    c.Label.Interpreter = 'Latex';
-    c.Label.Rotation = 360;
-    c.Label.FontSize = 18;
+    title({ ...
+        ['Estimate, $\alpha = $ ' num2str(prm.alpha)], ...
+        ['$PSNR$ = ', num2str(peaksnr, 4), ' dB ; $R_U$ = ', num2str(sum_capacity, 4), ' bps/Hz'] ...
+        }, 'Interpreter','latex','FontSize',14)
+    % c = colorbar;
+    % c.Label.String = '$|\hat{\textbf Z}|$';
+    % c.Label.Interpreter = 'Latex';
+    % c.Label.Rotation = 360;
+    % c.Label.FontSize = 18;
 
     % sgtitle({'True (L) vs. Estimate (R)', ...
     % ['NSE = ' num2str(NSE) ' [dB]']}, ...

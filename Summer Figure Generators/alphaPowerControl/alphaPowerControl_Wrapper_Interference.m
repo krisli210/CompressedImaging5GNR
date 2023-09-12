@@ -17,7 +17,7 @@ rng(42);
     
     prm.NumUsers = 4; % U per RB
     prm.NumVirtualUsers = 4; % V per RB;
-    prm.alpha = 1; % Power scaling. 
+    prm.alpha = .7; % Power scaling. 
     prm.commsSNR_dB = 10;
 
     prm.N_T = 1; % number of time slots
