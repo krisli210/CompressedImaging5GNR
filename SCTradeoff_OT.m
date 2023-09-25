@@ -15,9 +15,15 @@ rng(43);
     prm.NRB = 60; % number of resource blocks
     prm.K = 12*prm.NRB;
     
+<<<<<<< Updated upstream
     prm.NumUsers = 1; % U per RB
     prm.NumVirtualUsers = 7; % V per RB;
     prm.alpha = .2; % Power scaling. 
+=======
+    prm.NumUsers = 4; % U per RB
+    prm.NumVirtualUsers = 4; % V per RB;
+    prm.alpha = .5; % Power scaling. 
+>>>>>>> Stashed changes
     prm.N_T = 1; % number of time slots
     prm.Nofdm = 14; %number of OFDM symbols per slot
     prm.N_s = prm.N_T*prm.Nofdm;
