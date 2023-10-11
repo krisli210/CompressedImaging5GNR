@@ -5,8 +5,10 @@ function [H_tens, RangeAzProfile, ScatPosPol, threshold] = genGridChannel(prm)
 
 %     azInd = randperm(prm.N_theta, prm.L);
 %     rangeInd = randperm(prm.N_R, prm.L);
-    azInd = randi(prm.N_theta, [prm.L, 1]);
-    rangeInd = randi(prm.N_R, [prm.L, 1]);
+    % azInd = randi(prm.N_theta, [prm.L, 1]);
+    % rangeInd = randi(prm.N_R, [prm.L, 1]);
+    [azInd, rangeInd] = getRICE_Image();
+    prm.L = length(azInd);
 
     azValues = prm.AzBins(azInd);
     rangeValues = prm.RangeBins(rangeInd);

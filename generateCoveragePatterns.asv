@@ -1,0 +1,90 @@
+close all
+clear 
+
+rng(42);
+
+
+% % % OFDM Signal Params
+
+    prm.CenterFreq = 28e9;
+    prm.PropagationSpeed = physconst('LightSpeed');
+    prm.lam = prm.PropagationSpeed/prm.CenterFreq;
+
+    prm.Delta_f = 120*1e3; % SCS in KHz
+    
+    prm.NRB = 30; % number of resource blocks
+    prm.K = 12*prm.NRB;
+    
+    prm.NumUsers = 1; % U per RB
+    prm.N_T = 1; % number of time slots
+    prm.Nofdm = 14; %number of OFDM symbols per slot
+    prm.MCS = 16; %modulation order
+    
+% % % END OFDM Signal Params
+
+% % % % % Array and Channel Info
+
+    prm.BsPos = [0; 0; 0];
+    prm.BsArraySize = 18; %BS Dimension
+    prm.NumBsElements = prod(prm.BsArraySize);
+    prm.DeltaTX = .5; % Element spacing normalized by wavelength
+    prm.BsAZlim = [-60 60];
+    prm.BsELlim = [-90 0];
+    
+    % % % % % % % Target Construction
+%     prm.N_theta = prm.BsArraySize * prm.RxArraySize; %number of grid spots, i.e. dimension of the quantized azimuth profile
+    prm.N_theta = 1024;
+    thetaMin = prm.BsAZlim(1); thetaMax = prm.BsAZlim(2); %in Azimuth
+    prm.AzBins = thetaMin:(thetaMax-thetaMin)/(prm.N_theta-1):thetaMax;
+    % % % % % % % END Grid/Target Construction
+
+    % Spatial Dictionary Construction
+    H_TX = zeros(prm.NumBsElements, prm.N_theta);
+    for n = 1:prm.N_theta
+        H_TX(:, n) = exp(-1j * 2 * pi * prm.DeltaTX * (0:prm.NumBsElements-1) * sind(prm.AzBins(n))).';
+    end
+    patternAzBins = -60:.1:60; % Discretization for presentation's sake
+    
+% % % Transmit Signal Construction
+figure; 
+BsArray = phased.ULA(prm.NumBsElements, prm.lam * prm.DeltaTX, 'Element', phased.IsotropicAntennaElement);
+
+prm.N_T = 1; 
+prm.NumUsers = 1; % U per RB
+[MeanPattern, F_total] = genMeanPattern(prm.NumUsers, prm.NRB, prm.N_T, patternAzBins, BsArray, H_TX);
+subplot(2, 2, 1);
+polarplot(deg2rad(patternAzBins), 10*log10(MeanPattern), 'Color', 'b'); 
+m = max(10*log10(MeanPattern));
+% title({['$U = ', num2str(prm.NumUsers),'$'], ' ' }, 'interpreter', 'latex');
+thetalim([-60, 60])
+rticks([])
+
+prm.N_T = 1; 
+prm.NumUsers = 5; % U per RB
+[MeanPattern, F_total] = genMeanPattern(prm.NumUsers, prm.NRB, prm.N_T, patternAzBins, BsArray, H_TX);
+subplot(2, 2, 2);
+polarplot(deg2rad(patternAzBins), 10*log10(MeanPattern), 'Color', 'b'); 
+m = max(10*log10(MeanPattern));
+% title({['$U = ', num2str(prm.NumUsers),'$'], ' ' }, 'interpreter', 'latex');
+thetalim([-60, 60])
+rticks([])
+
+prm.N_T = 5; 
+prm.NumUsers = 1; % U per RB
+[MeanPattern, F_total] = genMeanPattern(prm.NumUsers, prm.NRB, prm.N_T, patternAzBins, BsArray, H_TX);
+subplot(2, 2, 3);
+polarplot(deg2rad(patternAzBins), 10*log10(MeanPattern), 'r'); 
+% title({['$U = ', num2str(prm.NumUsers),'$'], ' ' }, 'interpreter', 'latex');
+thetalim([-60, 60])
+rlim([0 m])
+rticks([])
+
+prm.N_T = 5; 
+prm.NumUsers = 5; % U per RB
+[MeanPattern, F_total] = genMeanPattern(prm.NumUsers, prm.NRB, prm.N_T, patternAzBins, BsArray, H_TX);
+subplot(2, 2, 4);
+polarplot(deg2rad(patternAzBins), 10*log10(MeanPattern), 'r'); 
+m = max(10*log10(MeanPattern));
+% title({['$U = ', num2str(prm.NumUsers),'$'], ' ' }, 'interpreter', 'latex');
+thetalim([-60, 60])
+rticks([])

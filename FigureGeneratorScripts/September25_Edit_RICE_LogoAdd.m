@@ -12,11 +12,11 @@ rng(52);
 
     prm.Delta_f = 120*1e3; % SCS in KHz
     
-    prm.NRB = 30; % number of resource blocks
+    prm.NRB = 60; % number of resource blocks
     prm.K = 12*prm.NRB;
     
-    prm.NumUsers = 1; % U per RB
-    prm.N_T = 4; % number of time slots
+    prm.NumUsers = 4; % U per RB
+    prm.N_T = 1; % number of time slots
     prm.Nofdm = 14; %number of OFDM symbols per slot
     prm.MCS = 16; %modulation order
     
@@ -97,7 +97,7 @@ rng(52);
     for k = 1:prm.K
         % n_k = 0;
         % Y_tens(:, :, k) = W(:, :, k) * (H_tens(:, :, k) * txGrid(:, :, k) + n_k);
-        [Y_tens(:, :, k), var] = awgn(H_tens(:, :, k) * txGrid(:, :, k), -10, 'measured') ;
+        [Y_tens(:, :, k), var] = awgn(H_tens(:, :, k) * txGrid(:, :, k), 20, 'measured') ;
         Y_tens(:, :, k) = W(:, :, k) * Y_tens(:, :, k);
     end
 
@@ -110,43 +110,42 @@ rng(52);
     % Az Cutting
     freqSamples = 1: (floor(prm.K / prm.N_R)) : prm.K;
     % freqSamples = 1:prm.K;
-    tic
     for k = freqSamples
         Phi_AZ = kron(squeeze(txGrid(:, :, k)).', W(:, :, k));
         A_Theta = Phi_AZ*Psi_AZ;
-        z_theta_per_K(:, k) = omp(A_Theta, Y_kron(:, k), prm.L, 1e-20);
+        z_theta_per_K(:, k) = omp(A_Theta, Y_kron(:, k), 30, 1e-20);
         I = find(z_theta_per_K(:, k));
         azSupport(I) = azSupport(I) | 1;
     end
-    toc
-    figure; 
-    hold on; 
-    stem(-60:120/(prm.N_theta-1):60, abs(sum(RangeAzProfile, 1)));
-    stem(-60:120/(prm.N_theta-1):60, mean(abs(z_theta_per_K(:, freqSamples)), 2), '--x');
-    xlabel('\theta');
-    ylabel('$|\hat{\mathbf{z}}_{\Theta}|$', 'Interpreter','latex');
-    title('Noisy Azimuth Profile')
-    legend({'True', 'Estimate'}, 'Location', 'best')  
     
     RangeAzProfile_hat = zeros(size(RangeAzProfile));
-    tic
     for azBin = find(azSupport)
         z_hat_R = omp(Psi_R(freqSamples, :), z_theta_per_K(azBin, freqSamples).', 10, 1e-20);
         RangeAzProfile_hat(:, azBin) = z_hat_R;
     end
     NSE = 10*log10(norm(RangeAzProfile_hat - RangeAzProfile).^2 ./ norm(RangeAzProfile).^2);
-    toc
-    figure;
-
-    subplot(1, 2, 1);
-    [h, c, lim] = polarPcolor(prm.RangeBins, prm.AzBins, 10*log10(abs(RangeAzProfile).^2).', ...
-        'typerose', 'default', 'labelR', 'r [m]');
-    c.Label.String = 'Measured RCS [dB]';
-    sgtitle({'True (L) vs. Estimate (R)', ...
-    ['NSE = ' ' $\frac{||\hat{z} - z||^2}{||z||^2} = $' num2str(NSE) ' [dB]']}, ...
-    'interpreter', 'latex'); 
     
-    subplot(1, 2, 2);
-    [h, c_hat, lim] = polarPcolor(prm.RangeBins, prm.AzBins, 10*log10(abs(RangeAzProfile_hat).^2).', ...
-        'typerose', 'default', 'labelR', 'r [m]', 'lim', lim);
-    c_hat.Label.String = 'Measured RCS [dB]';
+    figure;
+    imagesc(prm.AzBins, prm.RangeBins, abs(RangeAzProfile));
+    xlabel('Azimuth [$^\circ$]', 'Interpreter','latex', 'FontSize',14);
+    ylabel('Range $[m]$', 'Interpreter','latex', 'FontSize',14)
+    title('True','FontSize',14, 'Interpreter','latex');
+    c=colorbar;
+    c.Label.String = '$|\textbf Z|$';
+    c.Label.Interpreter = 'Latex';
+    c.Label.Rotation = 360;
+    c.Label.FontSize = 18;
+
+    figure;
+    imagesc(prm.AzBins, prm.RangeBins, abs(RangeAzProfile_hat));
+    xlabel('Azimuth [$^\circ$]', 'Interpreter','latex', 'FontSize',14);
+    ylabel('Range $[m]$', 'Interpreter','latex', 'FontSize',14)
+    title({ ...
+        ['Estimate, $U = $ ' num2str(prm.NumUsers), '; $SNR =  ' num2str(20) '$ dB'], ...
+        ['$NSE$ = ', num2str(NSE, 4), ' dB ; '] ...
+        }, 'Interpreter','latex','FontSize',14)
+    c = colorbar;
+    c.Label.String = '$|\hat{\textbf Z}|$';
+    c.Label.Interpreter = 'Latex';
+    c.Label.Rotation = 360;
+    c.Label.FontSize = 18;

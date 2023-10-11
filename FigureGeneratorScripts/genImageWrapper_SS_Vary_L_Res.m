@@ -50,22 +50,24 @@ max_FSPL_dB = 10*log10((4*pi*prm.rMax/prm.lam)^-2);
 %
 
 % Ranged Parameters
-L_range = [10:10:100];
-% L_range = 50;
+% L_range = [10:10:100];
+L_range = 50;
 
 N_Theta_range = [256];
+% N_Theta_range = [64 128 256];
 
 delta_R_range = 2;
 N_R_range = zeros(1, length(delta_R_range));
 
-% N_T_range = [1:8];
-N_T_range = 1;
+N_T_range = [1:8];
+% N_T_range = 1;
 
 U_range = [1:2:5];
-nIters = 1000;
+% U_range = 3;
+nIters = 100;
 
-NSEs_L_U_SS = zeros(length(N_Theta_range), length(delta_R_range), length(L_range), length(N_T_range), length(U_range));
-wholeData = zeros([size(NSEs_L_U_SS), nIters]);
+NSEs_NT_NTheta_SS = zeros(length(N_Theta_range), length(delta_R_range), length(L_range), length(N_T_range), length(U_range));
+wholeData = zeros([size(NSEs_NT_NTheta_SS), nIters]);
 
 for N_Theta_ind = 1:length(N_Theta_range)
 
@@ -109,11 +111,11 @@ for N_Theta_ind = 1:length(N_Theta_range)
                     for i = 1:nIters
                         wholeData(N_Theta_ind, delta_R_ind, L_ind, N_T_ind, U_ind, i) = genImageWrapped_SS(prm, H_TX, Psi_AZ, Psi_R);
                     end
-                    [NSEs_L_U_SS(N_Theta_ind, delta_R_ind, L_ind, N_T_ind, U_ind)] = mean(wholeData(N_Theta_ind, delta_R_ind, L_ind, N_T_ind, U_ind, :), 'all');
+                    [NSEs_NT_NTheta_SS(N_Theta_ind, delta_R_ind, L_ind, N_T_ind, U_ind)] = mean(wholeData(N_Theta_ind, delta_R_ind, L_ind, N_T_ind, U_ind, :), 'all');
                 end
             end
         end
     end
 end
 
-save('NSEs_L_U_noiseless', "NSEs_L_U_SS", 'wholeData', 'N_Theta_range', 'delta_R_range', 'L_range', 'N_T_range', 'U_range', 'prm');
+save('NSEs_NT_NTheta_noiseless', "NSEs_NT_NTheta_SS", 'wholeData', 'N_Theta_range', 'delta_R_range', 'L_range', 'N_T_range', 'U_range', 'prm');

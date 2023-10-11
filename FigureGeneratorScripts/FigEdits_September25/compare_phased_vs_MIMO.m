@@ -25,5 +25,4 @@ legend(legendString, 'location', 'best', 'Interpreter', 'latex', 'FontSize', 16)
 xlabel('Receive SNR [dB]', 'Interpreter','latex', 'FontSize',14)
 ylabel('Mean NSE [dB]', 'Interpreter','latex', 'FontSize',14);
 title({'Image NSE vs. $SNR, U$', ...
-    ['$N_T = ', num2str(1), '; \delta_\Theta = ', num2str(delta_Theta, 3), '^{\circ}$']}, ...
-    'Interpreter', 'latex', 'FontSize', 14);
+    ['$N_T = ', num2str(1), ';L = ', num2str(50) '; \delta_\Theta = ', num2str(delta_Theta, 3), '^{\circ}$']}, 'Interpreter', 'latex');

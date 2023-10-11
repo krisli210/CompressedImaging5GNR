@@ -1,6 +1,6 @@
 close
 
-f = load('NSEs_L_U_noiseless.mat');
+f = load('NSEs_L_U_noisy.mat');
 U_range = f.U_range;
 L_range = f.L_range;
 delta_Theta = 120/f.N_Theta_range;
@@ -15,5 +15,5 @@ legend(legendString, 'location', 'best', 'Interpreter', 'latex', 'FontSize', 16)
 grid on;
 xlabel('$L$', 'Interpreter','latex')
 ylabel('Mean NSE [dB]');
-title({'Normalized Squared Error vs. $N_T, U$', ...
+title({'Normalized Squared Error vs. $L, U$', ...
     ['$N_T = ', num2str(1) '; \delta_\Theta = ', num2str(delta_Theta, 3), '^{\circ}$']}, 'Interpreter', 'latex');

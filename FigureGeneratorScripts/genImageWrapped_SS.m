@@ -10,8 +10,8 @@ function [nse] = genImageWrapped_SS(prm, H_TX, Psi_AZ, Psi_R)
     
     freqSamples = 1 : (floor(prm.K / prm.N_R)) : prm.K;
     for k = freqSamples
-        % Y_tens(:, :, k) = W(:, :, k) * awgn(H_tens(:, :, k) * txGrid(:, :, k), prm.SNR_dB, 'measured');
-        Y_tens(:, :, k) = W(:, :, k) * H_tens(:, :, k) * txGrid(:, :, k); 
+        Y_tens(:, :, k) = W(:, :, k) * awgn(H_tens(:, :, k) * txGrid(:, :, k), prm.SNR_dB, 'measured');
+        % Y_tens(:, :, k) = W(:, :, k) * H_tens(:, :, k) * txGrid(:, :, k); 
     end
     
     % % % Receive Processing

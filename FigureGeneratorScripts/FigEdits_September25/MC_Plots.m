@@ -32,5 +32,5 @@ legend(legendString, 'Location', 'best', 'Interpreter','latex','Fontsize', 16);
 xlabel('Users per Resource Block', 'Interpreter','latex','FontSize',14);
 ylabel('$\mu(\mathbf{A}_{\Theta, k})$', 'Interpreter','latex','FontSize',14);
 title({'Mutual Coherence vs. $U$', ...
-    ['$N_T = ', num2str(1) , '$']}, 'Interpreter', 'latex','FontSize', 14);
+    ['$N_T = ', num2str(1) '; N, M = ', num2str(16), '$']}, 'Interpreter', 'latex');
 grid on;
