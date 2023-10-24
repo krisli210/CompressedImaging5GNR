@@ -28,9 +28,9 @@ end
 legendString = string([repmat('$\delta_{\Theta} = ', length(N_Theta_range), 1), ...
     num2str(120./N_Theta_range.', 3), ...
     repmat('^{\circ}$ ', length(N_Theta_range), 1)]);
-legend(legendString, 'Location', 'best', 'Interpreter','latex','Fontsize', 16);
-xlabel('Users per Resource Block', 'Interpreter','latex','FontSize',14);
-ylabel('$\mu(\mathbf{A}_{\Theta, k})$', 'Interpreter','latex','FontSize',14);
-title({'Mutual Coherence vs. $U$', ...
-    ['$N_T = ', num2str(1) '; N, M = ', num2str(16), '$']}, 'Interpreter', 'latex');
+legend(legendString, 'Location', 'best', 'Interpreter','latex','Fontsize', 24);
+xlabel('Users per Resource Block', 'Interpreter','latex','FontSize',24);
+ylabel('$\mu(\mathbf{A}_{\Theta, k})$', 'Interpreter','latex','FontSize',24);
+% title({'Mutual Coherence vs. $U$', ...
+%     ['$N_T = ', num2str(1) '; N, M = ', num2str(16), '$']}, 'Interpreter', 'latex');
 grid on;

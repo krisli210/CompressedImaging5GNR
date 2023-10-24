@@ -21,8 +21,8 @@ end
 grid on;
 
 legendString = ([repmat('$U = ', [3 1]), num2str(U_range.'), repmat('$', [3 1])]);
-legend(legendString, 'location', 'best', 'Interpreter', 'latex', 'FontSize', 16);
-xlabel('Receive SNR [dB]', 'Interpreter','latex', 'FontSize',14)
-ylabel('Mean NSE [dB]', 'Interpreter','latex', 'FontSize',14);
-title({'Image NSE vs. $SNR, U$', ...
-    ['$N_T = ', num2str(1), ';L = ', num2str(50) '; \delta_\Theta = ', num2str(delta_Theta, 3), '^{\circ}$']}, 'Interpreter', 'latex');
+legend(legendString, 'location', 'best', 'Interpreter', 'latex', 'FontSize', 24);
+xlabel('Receive SNR [dB]', 'Interpreter','latex', 'FontSize',24)
+ylabel('Mean NSE [dB]', 'Interpreter','latex', 'FontSize',24);
+% title({'Image NSE vs. $SNR, U$', ...
+%     ['$N_T = ', num2str(1), ';L = ', num2str(50) '; \delta_\Theta = ', num2str(delta_Theta, 3), '^{\circ}$']}, 'Interpreter', 'latex');

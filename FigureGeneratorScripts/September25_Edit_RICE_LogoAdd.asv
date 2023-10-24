@@ -127,8 +127,8 @@ rng(52);
     
     figure;
     imagesc(prm.AzBins, prm.RangeBins, abs(RangeAzProfile));
-    xlabel('Azimuth [$^\circ$]', 'Interpreter','latex', 'FontSize',24);
-    ylabel('Range $[m]$', 'Interpreter','latex', 'FontSize',24);
+    xlabel('Azimuth [$^\circ$]', 'Interpreter','latex', 'FontSize',18);
+    ylabel('Range $[m]$', 'Interpreter','latex', 'FontSize',14)
 %     title('True','FontSize',14, 'Interpreter','latex');
 %     c=colorbar;
 %     c.Label.String = '$|\textbf Z|$';
@@ -138,8 +138,8 @@ rng(52);
 
     figure;
     imagesc(prm.AzBins, prm.RangeBins, abs(RangeAzProfile_hat));
-    xlabel('Azimuth [$^\circ$]', 'Interpreter','latex', 'FontSize',24);
-    ylabel('Range $[m]$', 'Interpreter','latex', 'FontSize',24)
+    xlabel('Azimuth [$^\circ$]', 'Interpreter','latex', 'FontSize',14);
+    ylabel('Range $[m]$', 'Interpreter','latex', 'FontSize',14)
 %     title({ ...
 %         ['Estimate, $U = $ ' num2str(prm.NumUsers), '; $SNR =  ' num2str(20) '$ dB'], ...
 %         ['$NSE$ = ', num2str(NSE, 4), ' dB ; '] ...
